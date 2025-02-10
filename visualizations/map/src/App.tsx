@@ -364,11 +364,11 @@ function App() {
               onChange={(e) => setFilters({ ...filters, ssp: e.target.value })}
               style={{ backgroundColor: '#2f2f2f', color: '#fff', border: '1px solid #fff' }}
             >
-              <option value="SSP1">SSP 3</option>
-              <option value="SSP2">SSP 4</option>
-              <option value="SSP3">SSP 5</option>
-              <option value="SSP4">SSP 1</option>
-              <option value="SSP5">SSP 2</option>
+              <option value="SSP1">SSP 1</option>
+              <option value="SSP2">SSP 2</option>
+              <option value="SSP3">SSP 3</option>
+              <option value="SSP4">SSP 4</option>
+              <option value="SSP5">SSP 5</option>
             </select>
           </div>
           <div>
