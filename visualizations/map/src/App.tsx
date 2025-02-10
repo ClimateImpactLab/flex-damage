@@ -463,11 +463,11 @@ function App() {
         </form>
       </div>
 
-      {/* Contenedor de las tablas Top 10 */}
+      {/* Top 10 tables*/}
       <div
         style={{
           position: 'absolute',
-          top: 70,
+          top: 100,
           left: 10,
           zIndex: 30,
           display: 'flex',
