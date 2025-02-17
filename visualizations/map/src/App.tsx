@@ -11,20 +11,20 @@ import tileToProtobuf from 'vt-pbf';
 
 import type { FeatureCollection } from 'geojson';
 
-// Define una interfaz para los datos de la API
+// API data interface
 interface ApiDataItem {
   iso: string;
   [key: string]: any;
 }
 
-// Interfaz para la información del hover
+// Hover info interface
 interface HoverInfo {
   object: any;
   x: number;
   y: number;
 }
 
-// Helper: calcula el centroide de un feature (Polygon o MultiPolygon)
+// Helper: calculate the centroid of a feature (Polygon or MultiPolygon)
 const getCentroid = (feature: any): [number, number] | null => {
   const { type, coordinates } = feature.geometry;
   let coords;
@@ -46,14 +46,14 @@ const geoJsonUrl =
   'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
 
 function App() {
-  // Tipamos el contenedor con CSSProperties
+  // Container style
   const containerStyle: React.CSSProperties = {
     position: 'relative',
     width: '100vw',
     height: '100vh',
   };
 
-  // Estado del viewport
+  // Viewport state
   const [viewport, setViewport] = useState({
     longitude: 0,
     latitude: 20,
@@ -62,10 +62,11 @@ function App() {
     pitch: 0,
   });
 
-  // Estado para el GeoJSON (usamos el tipo FeatureCollection de 'geojson')
+  // State for GeoJSON data
   const [geoData, setGeoData] = useState<FeatureCollection | null>(null);
-  // Estado para los datos de la API
+  // State for API data
   const [apiData, setApiData] = useState<ApiDataItem[]>([]);
+  // State for filter values
   const [filters, setFilters] = useState({
     rcp: 'rcp45',
     ssp: 'SSP3',
@@ -80,7 +81,7 @@ function App() {
   const [loadingText, setLoadingText] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  // Cargar GeoJSON
+  // Load GeoJSON on mount
   useEffect(() => {
     fetch(geoJsonUrl)
       .then((res) => res.json())
@@ -88,7 +89,7 @@ function App() {
       .catch((err) => console.error('Error loading GeoJSON:', err));
   }, []);
 
-  // Mapeo ISO a nombre de país
+  // Map ISO to country name
   const isoToCountry = useMemo<Record<string, string>>(() => {
     const mapping: Record<string, string> = {};
     if (geoData && geoData.features) {
@@ -99,7 +100,7 @@ function App() {
     return mapping;
   }, [geoData]);
 
-  // Efecto para el spinner ("Loading...")
+  // Loading spinner effect
   useEffect(() => {
     if (loading) {
       const message = "Loading...";
@@ -116,7 +117,7 @@ function App() {
     }
   }, [loading]);
 
-  // Reverse protocol para MapLibre
+  // Reverse protocol for MapLibre
   useEffect(() => {
     const protocol = 'reverse';
     maplibregl.addProtocol(protocol, (request) => {
@@ -147,15 +148,18 @@ function App() {
     });
   }, []);
 
-  // Función para obtener datos de la API
+  // Function to fetch API data from Heroku endpoint
   const fetchApiData = () => {
+    // Clear old data so the map shows no data during loading
+    setApiData([]);
     setLoading(true);
     const startTime = Date.now();
     const query = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) query.append(key, value);
     });
-    fetch(`http://127.0.0.1:5000/api/data?${query.toString()}`)
+    // Use Heroku API endpoint
+    fetch(`https://flex-damage-api-425e80ae6f2d.herokuapp.com/api/data?${query.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         const elapsed = Date.now() - startTime;
@@ -171,23 +175,21 @@ function App() {
       });
   };
 
-  // Handler para el submit
+  // Handle form submit
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitted(true);
     fetchApiData();
   };
 
-  // Llamar a la API al cambiar los filtros o tras el submit
+  // Fetch API data when filters change and after submit
   useEffect(() => {
     if (submitted) {
       fetchApiData();
     }
   }, [filters, submitted]);
 
-  // Construir el mapeo de promedios en dos pasos:
-  // 1. Acumular sumas y contadores en 'temp'
-  // 2. Calcular el promedio y generar 'result'
+  // Aggregate API data by ISO code
   const aggregatedMapping = useMemo<Record<string, number>>(() => {
     const temp: Record<string, { sum: number; count: number }> = {};
     if (apiData) {
@@ -212,7 +214,7 @@ function App() {
     return result;
   }, [apiData, selectedMetric]);
 
-  // Calcular el valor máximo absoluto para normalizar
+  // Calculate max absolute value for normalization
   const maxAbs = useMemo<number>(() => {
     const values = Object.values(aggregatedMapping);
     if (values.length === 0) return 1;
@@ -220,7 +222,7 @@ function App() {
     return maxValue || 1;
   }, [aggregatedMapping]);
 
-  // Función para calcular el color según el valor (escala: negativo → azul, positivo → rojo)
+  // Get color based on value (blue for negative, red for positive)
   const getColorForValue = (value: number): number[] => {
     const norm = Math.max(-1, Math.min(1, value / maxAbs));
     let r, g, b;
@@ -236,11 +238,11 @@ function App() {
     return [r, g, b];
   };
 
-  // Capa GeoJSON para Deck.GL (se especifica el tipo genérico como 'any')
+  // Create GeoJsonLayer for Deck.GL
   const geoJsonLayer = useMemo(() => {
     return new GeoJsonLayer<any>({
       id: `geojson-layer-${selectedMetric}-${Object.keys(aggregatedMapping).length}`,
-      data: geoData as any, // Se castea a any para evitar problemas si geoData es null
+      data: geoData as any,
       pickable: true,
       stroked: true,
       filled: true,
@@ -258,7 +260,7 @@ function App() {
     });
   }, [geoData, aggregatedMapping, maxAbs, selectedMetric]);
 
-  // Top 10 Highest
+  // Top 10 highest values
   const sortedHighest = useMemo(() => {
     return Object.entries(aggregatedMapping)
       .map(([iso, value]) => ({ iso, value }))
@@ -266,7 +268,7 @@ function App() {
       .slice(0, 10);
   }, [aggregatedMapping]);
 
-  // Top 10 Lowest
+  // Top 10 lowest values
   const sortedLowest = useMemo(() => {
     return Object.entries(aggregatedMapping)
       .map(([iso, value]) => ({ iso, value }))
@@ -274,7 +276,7 @@ function App() {
       .slice(0, 10);
   }, [aggregatedMapping]);
 
-  // Callback para cambios en el viewport
+  // Update viewport state on change
   const handleViewportChange = useCallback((newViewport: any) => {
     setViewport((prev) => {
       if (
@@ -290,7 +292,7 @@ function App() {
     });
   }, []);
 
-  // Marker para la leyenda (calculando la posición)
+  // Create marker for legend based on hover info
   let marker: React.ReactElement | null = null;
   if (
     hoverInfo &&
@@ -318,7 +320,7 @@ function App() {
 
   return (
     <div style={containerStyle}>
-      {/* Panel de selección */}
+      {/* Control panel */}
       <div
         style={{
           position: 'absolute',
@@ -345,7 +347,7 @@ function App() {
             alignItems: 'center',
           }}
         >
-          {/* Campos de selección */}
+          {/* Filter fields */}
           <div>
             <label>RCP:</label>
             <select
@@ -463,7 +465,7 @@ function App() {
         </form>
       </div>
 
-      {/* Top 10 tables*/}
+      {/* Top 10 Tables */}
       <div
         style={{
           position: 'absolute',
@@ -535,7 +537,27 @@ function App() {
         </div>
       </div>
 
-      {/* Tooltip para el hover */}
+      {/* Warning message for no data */}
+      {!loading && submitted && apiData.length === 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 40,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: '#fff',
+            padding: '20px',
+            borderRadius: '5px',
+            fontFamily: 'monospace',
+          }}
+        >
+          No data available for these filters.
+        </div>
+      )}
+
+      {/* Tooltip on hover */}
       {hoverInfo && hoverInfo.object && (
         <div
           style={{
@@ -563,7 +585,7 @@ function App() {
         </div>
       )}
 
-      {/* Leyenda */}
+      {/* Legend */}
       <div
         style={{
           position: 'absolute',
@@ -598,7 +620,7 @@ function App() {
         </div>
       </div>
 
-      {/* Mapa con DeckGL */}
+      {/* Map with DeckGL */}
       <DeckGL
         initialViewState={viewport}
         controller={true}
