@@ -1,0 +1,157 @@
+---
+title: "Damage Function Analysis Report"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+# Data Summary
+
+The dataset consists of regional polynomial coefficients transformed for analysis.
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+
+
+# Set working directory
+setwd("/Volumes/Extreme Pro/CIL/damage_functions")
+
+
+# Define input CSV file
+outfile <- "results/collapse_FALSE_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/population_weighted/regional_polynomials.csv"
+
+
+# Ensure the CSV file exists
+if (!file.exists(outfile)) {
+  stop("Error: The specified CSV file does not exist.")
+}
+
+
+# Load the data
+results <- read.csv(outfile) %>%
+  mutate(alpha = alpha * 1e5, beta = beta * 1e5, sigma11 = sigma11 * 1e10, 
+         sigma12 = sigma12 * 1e10, sigma22 = sigma22 * 1e10, 
+         zeta = zeta * 1e5, eta = eta * 1e5)
+
+results.mu <- results[results$gamma == median(results$gamma, na.rm = TRUE),]
+
+
+# Compute polynomial fits
+TT <- seq(0, 20, length.out = 100)
+if (nrow(results.mu) > 0) {
+  allyy <- sapply(1:nrow(results.mu), function(ii) results.mu$alpha[ii] * TT + results.mu$beta[ii] * TT^2)
+  pdf_data <- data.frame(
+    TT, 
+    yy = rowMeans(allyy, na.rm = TRUE), 
+    q25 = apply(allyy, 1, function(yy) quantile(yy, .25, na.rm = TRUE)), 
+    q75 = apply(allyy, 1, function(yy) quantile(yy, .75, na.rm = TRUE))
+  )
+} else {
+  pdf_data <- data.frame(TT = numeric(), yy = numeric(), q25 = numeric(), q75 = numeric())
+}
+```
+
+```{r data-summary, echo=TRUE}
+summary(results.mu)
+```
+
+
+#
+
+# Summarize the polynomials
+
+```{r polynomial-fit, echo=FALSE, fig.height=4, fig.width=6}
+if (nrow(pdf_data) > 0) {
+  ggplot(pdf_data, aes(TT, yy)) +
+    geom_line() + geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .5) +
+    xlab("Climatic temperature change") + ylab("Regional damage function") +
+    theme_bw()
+}
+```
+
+
+#
+
+# Distribution of Zero Crossings
+
+
+- Over what range of temperatures and how frequently do the polynomials dip below 0?
+        - Crossing 0 at $$T = -\frac{\alpha}{\beta}$$.
+        - $$\beta = 0$$ (no crossing): 15.51 %
+        - $$T > 20$$ (beyond graph): 8.57 %
+        - $$T < 0$$ (never crossing): 18.78 %
+        
+```{r}
+# Calculate the percentage of cases for each condition
+results.mu$iso3 <- substring(results.mu$region, 1, 3)
+
+# Avoid division by zero by assigning NA where beta == 0
+results.mu$cross0 <- ifelse(results.mu$beta == 0, NA, -results.mu$alpha / results.mu$beta)
+
+# Compute proportions
+prop_beta_zero <- mean(results.mu$beta == 0)  # Proportion where beta == 0
+prop_cross0_above_20 <- mean(results.mu$alpha < 0 & results.mu$beta != 0 & results.mu$cross0 > 20, na.rm = TRUE)
+prop_cross0_below_0 <- mean(results.mu$alpha > 0 & results.mu$beta != 0 & results.mu$cross0 < 0, na.rm = TRUE)
+
+cat("Percentage where beta == 0 (No crossing):", round(100 * prop_beta_zero, 2), "%\n")
+cat("Percentage where alpha < 0 and T > 20 (Beyond graph):", round(100 * prop_cross0_above_20, 2), "%\n")
+cat("Percentage where alpha > 0 and T < 0 (Never crossing):", round(100 * prop_cross0_below_0, 2), "%\n")
+
+
+```
+
+
+```{r stats-crossings, echo=FALSE, fig.height=4, fig.width=6}
+if (nrow(results.mu) > 0) {
+  results.mu$iso3 <- substring(results.mu$region, 1, 3)
+  results.mu$cross0 <- -results.mu$alpha / results.mu$beta
+  ggplot(subset(results.mu, cross0 > 0 & cross0 < 20), aes(cross0)) +
+    facet_wrap(~ ifelse(alpha > 0, "Concave", "Convex"), ncol = 1, scales = "free_y") +
+    geom_histogram() +
+    xlab("Temperature for crossing 0") +
+    ylab("Region count") +
+    theme_bw()
+}
+```
+
+
+#
+
+# Slope Analysis
+
+
+How extreme are the slopes between 0 and 10 °C?
+- Slope: $$\alpha + 2 \beta T$$, max at 0 or 10
+
+```{r slope-analysis, echo=FALSE, fig.height=4, fig.width=6}
+if (nrow(results.mu) > 0) {
+  results.mu$maxslope <- pmax(results.mu$alpha + 2 * results.mu$beta * 10, results.mu$alpha, na.rm = TRUE)
+  ggplot(results.mu, aes(maxslope)) +
+    geom_histogram() + xlab("Maximum slope from 0 to 10°C") + ylab("Region count") +
+    theme_bw()
+}
+```
+
+
+When is concave polynomial estimated (and then clipped to linear)?
+$$\beta > 0$$ (convex response): 84.46 %
+
+
+Where are these?
+
+```{r concave-poly, echo=FALSE, fig.height=4, fig.width=6}
+results.mu$iso3 <- substring(results.mu$region, 1, 3)
+results.mu$cross0 <- -results.mu$alpha / results.mu$beta
+
+tbl <- table(results.mu$iso3[results.mu$beta == 0])
+round(sapply(1:length(tbl), function(ii) tbl[ii] / sum(results.mu$iso3 == names(tbl)[ii])), 2)
+```
+  
+
+
+#
+
+# Conclusion
+
+The analysis shows how regional damage functions behave across different temperature ranges. Further refinements can be made for policy-relevant interpretations.
