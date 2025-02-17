@@ -15,8 +15,7 @@ library(dplyr)
 
 
 # Set working directory
-setwd("/Volumes/Extreme Pro/CIL/damage_functions")
-
+setwd("D:/CIL/damage_functions")
 
 # Define input CSV file
 outfile <- "results/collapse_FALSE_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/population_weighted/regional_polynomials.csv"
@@ -34,7 +33,6 @@ results <- read.csv(outfile) %>%
          sigma12 = sigma12 * 1e10, sigma22 = sigma22 * 1e10, 
          zeta = zeta * 1e5, eta = eta * 1e5)
 
-results.mu <- results[results$gamma == median(results$gamma, na.rm = TRUE),]
 
 
 # Compute polynomial fits
@@ -148,10 +146,71 @@ tbl <- table(results.mu$iso3[results.mu$beta == 0])
 round(sapply(1:length(tbl), function(ii) tbl[ii] / sum(results.mu$iso3 == names(tbl)[ii])), 2)
 ```
   
-
-
+  
 #
 
-# Conclusion
+# Model Fit
+```{r model-fit, echo=FALSE, fig.height=4, fig.width=6}
 
-The analysis shows how regional damage functions behave across different temperature ranges. Further refinements can be made for policy-relevant interpretations.
+library(ggplot2)
+library(scales)
+
+# Load data
+required_columns <- c("region", "year", "batch", "gcm", "model", "rcp", "ssp", "adjusted_mortality", "anomaly", "total_population", "gdppc")
+csv_file_path <- "data/mortality_regression_full_mc.csv"
+
+df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start = 2010, gdp_baseline_end = 2020,
+                            collapse_regional_data = FALSE)
+
+df$mean_normed <- df$delta_mortality / (exp(df$lgdp_delta)^1)
+
+# fit to the data
+gamma.mu <- median(results$gamma)
+
+df$mean.normed <- df$mean / (exp(df$lgdp_delta)^gamma.mu)
+df$mean.pred <- NA
+df$mean.pred.mu <- NA
+df$mean.pred.sd <- NA
+
+for (reg in unique(df$region)) {
+  print(reg)
+  
+  subdf <- subset(df, region == reg)
+  subres <- subset(results, region == reg & gamma == gamma.mu)
+  df$mean.normed[df$region == reg] <- subres$alpha * subdf$delta_temp + subres$beta * subdf$delta_temp^2
+  df$mean.pred[df$region == reg] <- (subres$alpha * subdf$delta_temp + subres$beta * subdf$delta_temp^2) * exp(subdf$lgdp_delta)^gamma.mu
+  
+  subres <- subset(results, region == reg)
+  draws <- matrix(NA, 100 * nrow(subres), nrow(subdf))
+  for (ii in 1:nrow(subres)) {
+    alphabetas <- rmvnorm(100, c(subres$alpha[ii], subres$beta[ii]), matrix(c(subres$sigma11[ii], subres$sigma12[ii], subres$sigma12[ii], subres$sigma22[ii]), 2, 2))
+    thetas <- rnorm(100, 0, subres$zeta[ii])
+    phis <- rnorm(100, 0, subres$eta[ii])
+    ests <- sapply(1:nrow(subdf), function(jj) (alphabetas[, 1] * subdf$delta_temp[jj] + alphabetas[, 2] * subdf$delta_temp[jj]^2) * exp(subdf$lgdp.diff[jj])^subres$gamma[ii] + thetas * subdf$tas.preind[jj] * exp(subdf$lgdp.diff[jj])^subres$gamma[ii] + phis)
+    draws[(1:100) + (ii - 1) * 100, ] <- ests
+  }
+  
+  df$mean.pred.mu[df$region == reg] <- colMeans(draws)
+  df$mean.pred.sd[df$region == reg] <- apply(draws, 2, sd)
+}
+
+
+# Scatter plot: Reported vs. Predicted values
+ggplot(df, aes(log_delta_mortality, mean.pred)) +
+  geom_point(size = 0.1, alpha = 0.1) +
+  geom_abline(slope = 1, colour = muted("red")) +
+  theme_bw() +
+  xlab("Reported value") +
+  ylab("Predicted value") +
+  ggtitle("Model Fit: Reported vs. Predicted Values")
+
+# Scatter plot: Reported vs. Mean of Monte Carlo Predictions
+ggplot(df, aes(log_delta_mortality, mean.pred.mu)) +
+  geom_point(size = 0.1, alpha = 0.1) +
+  geom_abline(slope = 1, colour = muted("red")) +
+  theme_bw() +
+  xlab("Reported value") +
+  ylab("Predicted value (mean of MCs)") +
+  ggtitle("Model Fit: Monte Carlo Mean Predictions")
+
+```
