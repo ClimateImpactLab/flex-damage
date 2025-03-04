@@ -3,6 +3,7 @@
 # Set working directory (adjust as needed).
 setwd("D:/CIL/damage_functions")
 # setwd("/mnt/d/CIL/damage_functions")
+setwd("C:/Users/scada/git/cil/flex-damage")
 
 # Define required packages.
 required_packages <- c("data.table", "dplyr", "tidyr", "lfe", "mvtnorm", 
@@ -77,7 +78,8 @@ weighting <- "weighted"                 # Options: "population_weighted", "unwei
 collapse_regional_data <- FALSE         # If TRUE, aggregate data during loading.
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
-
+gdp_baseline_START <- 2010
+gdp_baseline_END <- 2020
 # Print configuration.
 log_info("User configuration set:")
 cat(blue("Parameters Selected:\n"))
@@ -89,13 +91,8 @@ cat(green(sprintf("  n_cores: %s\n", n_cores)))
 
 # --- Data Loading & Processing ---
 log_info("Loading and processing data...")
-df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start = 2010, gdp_baseline_end = 2020,
+df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start = gdp_baseline_START, gdp_baseline_end = gdp_baseline_END,
                             collapse_regional_data = collapse_regional_data)
-
-# IMPORTANT:
-# The user must compute and add the "mean_normed" column.
-# Example: using an exponent of 1 (this can be changed as desired).
-df$mean_normed <- df$delta_mortality / (exp(df$lgdp_delta)^1)
 
 log_info("Data loaded and processed successfully.")
 
@@ -104,26 +101,13 @@ group_dimension <- if (collapse_regional_data) "year_rcp_ssp_model_gcm" else "ye
 base_path <- setup_environment(collapse_flag = collapse_regional_data, group_dimension = group_dimension)
 init_logging(base_path)
 
-# --- Define User-Specified Model Functions (Optional) ---
+# --- Define User-Specified Overall Model Function (Optional) ---
 
 # Custom overall (base) model function.
 custom_base_model_fn <- function(data, weights) {
   felm(log_delta_mortality ~ loggdppc | group + year | 0 | group + year,
        data = data, weights = weights)
 }
-
-# Custom regional model function.
-# This function assumes that "mean_normed" is already computed and uses the user-specified regression formula.
-custom_regional_model_fn <- function(subdf, reg_formula) {
-  if (!"mean_normed" %in% names(subdf)) {
-    stop("Data must include the 'mean_normed' column computed by the user.")
-  }
-  mod <- lm(reg_formula, data = subdf)
-  return(list(model = mod, coeff = coef(mod), vcv = vcov(mod)))
-}
-
-# Specify the regional regression formula.
-regional_formula <- mean_normed ~ delta_temp + I(delta_temp^2)
 
 # --- Run Scenario Analysis ---
 results <- run_scenario_analysis(
@@ -133,9 +117,8 @@ results <- run_scenario_analysis(
   collapse_regional_data = collapse_regional_data,
   parallel = parallel_processing,
   ncores = n_cores,
-  base_model_fn = custom_base_model_fn,         # Overall model function.
-  regional_model_fn = custom_regional_model_fn,   # Regional model function.
-  regional_formula = regional_formula           # Regional regression formula.
+  base_model_fn = custom_base_model_fn  # Overall model function.
+  # Note: regional analysis now uses gamma values internally.
 )
 
 # --- Save Base Results ---

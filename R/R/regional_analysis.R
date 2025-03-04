@@ -3,99 +3,109 @@ library(dplyr)
 library(ggplot2)
 library(future.apply)
 library(logger)
+library(progressr)
 
 # Run regional analysis for each region.
-# This function assumes that the data already contains a user-supplied "mean_normed" column.
-# The user can specify the regression functional form via the 'regional_formula' parameter.
-# Optionally, a custom regional model function (regional_model_fn) can be provided.
-run_regional_analysis <- function(data, globaldf, output_dir, 
-                                  collapse_data = FALSE, parallel = FALSE, ncores = 1,
-                                  regional_model_fn = NULL,
-                                  regional_formula = mean_normed ~ delta_temp + I(delta_temp^2)) {
-  # Set default regional model function if not provided.
-  if (is.null(regional_model_fn)) {
-    regional_model_fn <- function(subdf, reg_formula) {
-      if (!"mean_normed" %in% names(subdf)) {
-        stop("The data must contain a 'mean_normed' column.")
-      }
-      mod <- lm(reg_formula, data = subdf)
-      return(list(model = mod, coeff = coef(mod), vcv = vcov(mod)))
-    }
-  }
-  
+# For each region it computes mean_normed using each gamma value provided.
+run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_dir) {
+  results <- data.frame()
   regions <- unique(data$region)
   total_regions <- length(regions)
   
-  # Function to process one region.
-  process_region <- function(reg, idx) {
-    if (reg == "") return(NULL)
-    start_time <- Sys.time()
-    subdf <- subset(data, region == reg)
-    
-    # Fit the regional model using the user-specified functional form.
-    result <- regional_model_fn(subdf, regional_formula)
-    if (is.null(result)) return(NULL)
-    
-    # Calculate residuals.
-    subdf$resids <- if (!is.null(result$model$na.action)) {
-      x <- rep(NA, nrow(subdf))
-      x[-result$model$na.action] <- residuals(result$model)
-      x
-    } else {
-      residuals(result$model)
-    }
-    
-    # Merge with global data for diagnostics.
-    if (collapse_data) {
-      merged_df <- subdf %>%
-        left_join(globaldf %>% select(year, rcp, ssp, gcm, model, resids),
-                  by = c("year", "rcp", "ssp", "model", "gcm"),
-                  suffix = c("_reg", "_glob"))
-    } else {
-      merged_df <- subdf %>%
-        left_join(globaldf %>% select(batch, year, rcp, ssp, gcm, model, resids),
-                  by = c("batch", "year", "rcp", "ssp", "model", "gcm"),
-                  suffix = c("_reg", "_glob"))
-    }
-    rho <- cor(merged_df$resids_reg, merged_df$resids_glob, use = 'complete')
-    
-    subdf$totalsd_scaled <- sqrt(subdf$resids^2)
-    subdf$totalsd_scaled[!is.finite(subdf$totalsd_scaled)] <- NA
-    mod2 <- lm(totalsd_scaled ~ 0 + delta_temp, data = subdf)
-    
-    region_result <- data.frame(
-      region = reg,
-      alpha = result$coeff[2],
-      beta = result$coeff[3],
-      sigma11 = result$vcv[2, 2],
-      sigma12 = result$vcv[2, 3],
-      sigma22 = result$vcv[3, 3],
-      rho = rho,
-      zeta = coef(mod2),
-      eta = sd(residuals(mod2)),
-      rsqr1 = summary(result$model)$r.squared,
-      rsqr2 = summary(mod2)$r.squared
-    )
-    elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
-    log_info("Region {reg}: processing time = {round(elapsed,1)} sec")
-    return(region_result)
-  }
+  # Spinner characters for progress display.
+  spinner <- c("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
   
-  results <- list()
-  if (parallel) {
-    plan(multisession, workers = ncores)
-    results <- future_lapply(seq_along(regions), function(i) {
-      process_region(regions[i], i)
-    })
-    results <- do.call(rbind, results)
-    plan(sequential)
-  } else {
+  # Set up progress handlers.
+  handlers(global = TRUE)
+  handlers("progress")
+  
+  with_progress({
+    p <- progressor(steps = total_regions)
+    
     for (i in seq_along(regions)) {
-      res <- process_region(regions[i], i)
-      if (!is.null(res)) results <- rbind(results, res)
-    }
-  }
+      reg <- regions[i]
+      if (reg == "") next
+      
+      percentage <- as.character(round((i / total_regions) * 100, 1))
+      spin_char <- spinner[(i %% length(spinner)) + 1]
+      progress_msg <- sprintf("%s %s | Progress: %s/%s [%s%%] %s",
+                              spin_char, reg, i, total_regions, percentage,
+                              ifelse(i == total_regions, "✓", ""))
+      p(progress_msg)
+      
+      # Subset data for the current region.
+      subdf_region <- subset(data, region == reg)
+      
+      # Loop over each gamma value.
+      for (gamma_val in gamma_values) {
+        # Recompute normalized mortality using the current gamma value.
+        subdf <- subdf_region
+        subdf$mean_normed <- subdf$delta_mortality / (exp(subdf$lgdp_delta)^gamma_val)
+        subdf$tas_preind2 <- subdf$delta_temp^2
+        
+        # Skip if insufficient non-missing data.
+        if (sum(!is.na(subdf$mean_normed) & !is.na(subdf$delta_temp)) < 3)
+          next
+        
+        # Fit the regional regression.
+        mod <- lm(mean_normed ~ delta_temp + tas_preind2, data = subdf)
+        # Create a prediction dataframe (for diagnostics, if needed).
+        preddf <- data.frame(delta_temp = seq(0, 4.5, length.out = 100))
+        preddf$tas_preind2 <- preddf$delta_temp^2
+        preddf$mean_normed <- predict(mod, preddf)
+        
+        # Force convexity if necessary.
+        if (coef(mod)[3] < 0) {
+          mod <- lm(mean_normed ~ delta_temp, data = subdf)
+          coeff <- c(coef(mod), 0)
+          vcv <- vcov(mod)
+          vcv <- cbind(rbind(vcv, c(0, 0)), c(0, 0, 0))
+        } else {
+          coeff <- coef(mod)
+          vcv <- vcov(mod)
+        }
+        
+        # Calculate residuals.
+        subdf$resids <- if (!is.null(mod$na.action)) {
+          x <- rep(NA, nrow(subdf))
+          x[-mod$na.action] <- residuals(mod)
+          x
+        } else {
+          residuals(mod)
+        }
+        
+        # Merge with global data for diagnostics.
+        merged_df <- subdf %>%
+          left_join(globaldf %>% select(year, rcp, ssp, gcm, model, resids),
+                    by = c("year", "rcp", "ssp", "model", "gcm"),
+                    suffix = c("_reg", "_glob"))
+        rho <- cor(merged_df$resids_reg, merged_df$resids_glob, use = 'complete')
+        
+        # Calculate scaled total standard deviation.
+        subdf$totalsd_scaled <- sqrt(subdf$resids^2)
+        subdf$totalsd_scaled[!is.finite(subdf$totalsd_scaled)] <- NA
+        mod2 <- lm(totalsd_scaled ~ 0 + delta_temp, data = subdf)
+        
+        # Store results for this region and gamma value.
+        results <- rbind(results, data.frame(
+          region = reg,
+          gamma = gamma_val,
+          alpha = coeff[2],
+          beta = coeff[3],
+          sigma11 = vcv[2, 2],
+          sigma12 = vcv[2, 3],
+          sigma22 = vcv[3, 3],
+          rho = rho,
+          zeta = coef(mod2),
+          eta = sd(residuals(mod2)),
+          rsqr1 = summary(mod)$r.squared,
+          rsqr2 = summary(mod2)$r.squared
+        ))
+      } # end loop over gamma values
+    } # end loop over regions
+  }) # end with_progress
   
+  # Save regional results.
   write.csv(results, file.path(output_dir, "regional_polynomials.csv"), row.names = FALSE)
   
   # Generate an example plot (distribution of the alpha coefficient).

@@ -9,10 +9,17 @@ library(logger)
 #   - base_model_fn: a function(data, weights) returning the overall model.
 #   - regional_model_fn: a function(subdf, regional_formula) for regional regressions.
 #   - regional_formula: the regression formula to be used in regional models.
-run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collapse_regional_data = FALSE, 
-                                  parallel = FALSE, ncores = 1,
-                                  base_model_fn = NULL, regional_model_fn = NULL,
+run_scenario_analysis <- function(data, gamma_filter, 
+                                  use_weights = TRUE, 
+                                  collapse_regional_data = FALSE, 
+                                  parallel = FALSE,
+                                  ncores = 1,
+                                  base_model_fn = NULL, 
+                                  regional_model_fn = NULL,
                                   regional_formula = mean_normed ~ delta_temp + I(delta_temp^2)) {
+  
+  log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_regional_data: {collapse_regional_data}, parallel: {parallel}, ncores: {ncores}")
+  
   # Set default overall model function if not provided.
   if (is.null(base_model_fn)) {
     base_model_fn <- function(data, weights) {
@@ -23,12 +30,15 @@ run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collap
   
   # Determine weights.
   weights <- if (use_weights) ifelse(!is.na(data$population), data$population, 1) else rep(1, nrow(data))
+  log_info("Using weights: {use_weights}. Number of non-NA population values: {sum(!is.na(data$population))}")
   
   # Set up directories for results.
   base_path <- setup_environment(collapse_flag = collapse_regional_data, group_dimension = "year_rcp_ssp_model_gcm")
+  log_info("Base path for results: {base_path}")
   
   # Fit the overall (base) model.
   mod <- base_model_fn(data, weights)
+  log_info("Base model fit completed. Number of coefficients estimated: {length(mod$coefficients)}")
   
   # Compute gamma parameters from the overall model.
   gamma <- list(
@@ -42,6 +52,7 @@ run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collap
     gamma$mu <- mean(gamma$values, na.rm = TRUE)
     gamma$se <- sd(gamma$values, na.rm = TRUE) / sqrt(length(gamma$values))
   }
+  log_info("Filtered gamma values. Remaining count: {length(gamma$values)}")
   
   # Prepare global data for further analysis.
   if (collapse_regional_data) {
@@ -73,10 +84,14 @@ run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collap
         tas_preind2 = tas_preind^2
       )
   }
+  log_info("Global data prepared with {nrow(globaldf)} observations.")
   
   mod_global <- lm(mean_normed ~ tas_preind + tas_preind2,
                    data = globaldf,
                    weights = if (use_weights) globaldf$population else NULL)
+  
+  log_info("Global model fit completed. Coefficients estimated: {length(coef(mod_global))}")
+  
   globaldf$resids <- if (!is.null(mod_global$na.action)) {
     x <- rep(NA, nrow(globaldf))
     x[-mod_global$na.action] <- residuals(mod_global)
@@ -89,6 +104,7 @@ run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collap
   output_dir <- file.path(base_path, "analysis_scenarios", gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  log_info("Output directory created: {output_dir}")
   
   gamma_df <- data.frame(
     mu = gamma$mu,
@@ -106,6 +122,7 @@ run_scenario_analysis <- function(data, gamma_filter, use_weights = TRUE, collap
   write.csv(gamma_values_df, file.path(output_dir, "gamma_values.csv"), row.names = FALSE)
   
   write.csv(globaldf, file.path(output_dir, "global_analysis.csv"), row.names = FALSE)
+  log_info("Saved global analysis results in {output_dir}.")
   
   global_model_coef <- data.frame(
     term = names(coef(mod_global)),
