@@ -86,7 +86,7 @@ log_info("User configuration set:")
 cat(blue("Parameters Selected:\n"))
 cat(green(sprintf("  gamma_filter: %s\n", gamma_filter)))
 cat(green(sprintf("  weighting: %s\n", weighting)))
-cat(green(sprintf("  collapse_regional_data: %s\n", collapse_regional_data)))
+cat(green(sprintf("  collapse_regional_data: %s\n", collapse_batch)))
 cat(green(sprintf("  parallel_processing: %s\n", parallel_processing)))
 cat(green(sprintf("  n_cores: %s\n", n_cores)))
 
@@ -98,7 +98,7 @@ df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start 
 log_info("Data loaded and processed successfully.")
 
 # --- Environment Setup & Logging ---
-base_path <- setup_environment(collapse_flag = collapse_regional_data, collapse_batch = collapse_batch)
+base_path <- setup_environment(collapse_batch = collapse_batch)
 
 init_logging(base_path)
 
