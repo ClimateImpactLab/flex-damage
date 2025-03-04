@@ -11,14 +11,14 @@ library(logger)
 #   - regional_formula: the regression formula to be used in regional models.
 run_scenario_analysis <- function(data, gamma_filter, 
                                   use_weights = TRUE, 
-                                  collapse_regional_data = FALSE, 
+                                  collapse_batch = FALSE, 
                                   parallel = FALSE,
                                   ncores = 1,
                                   base_model_fn = NULL, 
                                   regional_model_fn = NULL,
                                   regional_formula = mean_normed ~ delta_temp + I(delta_temp^2)) {
   
-  log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_regional_data: {collapse_regional_data}, parallel: {parallel}, ncores: {ncores}")
+  log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}")
   
   # Set default overall model function if not provided.
   if (is.null(base_model_fn)) {
@@ -33,7 +33,8 @@ run_scenario_analysis <- function(data, gamma_filter,
   log_info("Using weights: {use_weights}. Number of non-NA population values: {sum(!is.na(data$population))}")
   
   # Set up directories for results.
-  base_path <- setup_environment(collapse_flag = collapse_regional_data, group_dimension = "year_rcp_ssp_model_gcm")
+  base_path <- setup_environment(collapse_flag = collapse_batch, collapse_batch = collapse_batch)
+  
   log_info("Base path for results: {base_path}")
   
   # Fit the overall (base) model.
@@ -55,7 +56,7 @@ run_scenario_analysis <- function(data, gamma_filter,
   log_info("Filtered gamma values. Remaining count: {length(gamma$values)}")
   
   # Prepare global data for further analysis.
-  if (collapse_regional_data) {
+  if (collapse_batch) {
     globaldf <- data %>%
       group_by(year, rcp, ssp, model, gcm) %>%
       summarize(
@@ -166,7 +167,7 @@ run_scenario_analysis <- function(data, gamma_filter,
   
   # Run regional analysis.
   regional_results <- run_regional_analysis(data, globaldf, output_dir,
-                                            collapse_data = collapse_regional_data,
+                                            collapse_data = collapse_batch,
                                             parallel = parallel, ncores = ncores,
                                             regional_model_fn = regional_model_fn,
                                             regional_formula = regional_formula)

@@ -1,9 +1,10 @@
 # File: main.R
 
 # Set working directory (adjust as needed).
-setwd("D:/CIL/damage_functions")
+# setwd("D:/CIL/damage_functions")
 # setwd("/mnt/d/CIL/damage_functions")
-setwd("C:/Users/scada/git/cil/flex-damage")
+# setwd("C:/Users/scada/git/cil/flex-damage")
+setwd("C:/Users/scada/git/cil/dev")
 
 # Define required packages.
 required_packages <- c("data.table", "dplyr", "tidyr", "lfe", "mvtnorm", 
@@ -75,7 +76,7 @@ csv_file_path <- "data/mortality_regression_full_mc.csv"
 # Set parameters (these replace the former config.R).
 gamma_filter <- "all_gamma_values"      # Options: "all_gamma_values", "positive_gamma_only"
 weighting <- "weighted"                 # Options: "population_weighted", "unweighted"
-collapse_regional_data <- FALSE         # If TRUE, aggregate data during loading.
+collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
 gdp_baseline_START <- 2010
@@ -92,13 +93,13 @@ cat(green(sprintf("  n_cores: %s\n", n_cores)))
 # --- Data Loading & Processing ---
 log_info("Loading and processing data...")
 df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start = gdp_baseline_START, gdp_baseline_end = gdp_baseline_END,
-                            collapse_regional_data = collapse_regional_data)
+                            collapse_batch_data = collapse_batch)
 
 log_info("Data loaded and processed successfully.")
 
 # --- Environment Setup & Logging ---
-group_dimension <- if (collapse_regional_data) "year_rcp_ssp_model_gcm" else "year_rcp_ssp_model_gcm_batch"
-base_path <- setup_environment(collapse_flag = collapse_regional_data, group_dimension = group_dimension)
+base_path <- setup_environment(collapse_flag = collapse_regional_data, collapse_batch = collapse_batch)
+
 init_logging(base_path)
 
 # --- Define User-Specified Overall Model Function (Optional) ---
@@ -114,7 +115,7 @@ results <- run_scenario_analysis(
   data = df,
   gamma_filter = gamma_filter,
   use_weights = (weighting == "population_weighted"),
-  collapse_regional_data = collapse_regional_data,
+  collapse_batch = collapse_batch,
   parallel = parallel_processing,
   ncores = n_cores,
   base_model_fn = custom_base_model_fn  # Overall model function.

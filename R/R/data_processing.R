@@ -19,14 +19,14 @@ validate_csv_file <- function(csv_file_path, required_columns) {
 
 # Load the CSV file, validate its columns, and process the data.
 # The user is responsible for computing the "mean_normed" variable later.
-load_and_process_data <- function(csv_file_path, required_columns, gdp_baseline_start, gdp_baseline_end, collapse_regional_data = FALSE) {
+load_and_process_data <- function(csv_file_path, required_columns, gdp_baseline_start, gdp_baseline_end, collapse_batch_data = FALSE) {
   # Validate the CSV file.
   validate_csv_file(csv_file_path, required_columns)
   
   # Load data.
   df <- fread(csv_file_path)
   
-  if (collapse_regional_data) {
+  if (collapse_batch_data) {
     # Aggregate data by grouping over region, year, gcm, model, rcp, and ssp.
     df <- df %>%
       select(region, year, batch, gcm, model, rcp, ssp,
@@ -55,25 +55,25 @@ load_and_process_data <- function(csv_file_path, required_columns, gdp_baseline_
   df$loggdppc <- log(df$gdppc)
   
   # Compute GDP reference values (using years 2010-2020).
-  if (collapse_regional_data) {
+  if (collapse_batch_data) {
     gdp_reference <- df %>%
       filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
       group_by(region, ssp, rcp, model) %>%
-      summarize(avg_gdp_2010_2020 = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
+      summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
     
     df <- df %>%
       left_join(gdp_reference, by = c("region", "ssp", "rcp", "model")) %>%
-      mutate(lgdp_delta = loggdppc - avg_gdp_2010_2020)
+      mutate(lgdp_delta = loggdppc - avg_gdp_ref)
     
   } else {
     gdp_reference <- df %>%
       filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
       group_by(batch, region, ssp, rcp, model) %>%
-      summarize(avg_gdp_2010_2020 = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
+      summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
     
     df <- df %>%
       left_join(gdp_reference, by = c("batch", "region", "ssp", "rcp", "model")) %>%
-      mutate(lgdp_delta = loggdppc - avg_gdp_2010_2020)
+      mutate(lgdp_delta = loggdppc - avg_gdp_ref)
   }
   
   # Compute the logarithm of delta_mortality and filter out extreme low values.
