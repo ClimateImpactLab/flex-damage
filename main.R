@@ -1,10 +1,13 @@
 # File: main.R
 
-# Set working directory (adjust as needed).
-# setwd("D:/CIL/damage_functions")
-# setwd("/mnt/d/CIL/damage_functions")
-# setwd("C:/Users/scada/git/cil/flex-damage")
-setwd("C:/Users/scada/git/cil/dev")
+source("R/R/utils.R")
+# Set working directory
+script_path <- get_script_path()
+setwd(script_path)
+
+# Print confirmation
+cat(sprintf("Working directory set to: %s\n", script_path))
+
 
 # Define required packages.
 required_packages <- c("data.table", "dplyr", "tidyr", "lfe", "mvtnorm", 
