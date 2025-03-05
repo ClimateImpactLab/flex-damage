@@ -23,13 +23,27 @@ run_scenario_analysis <- function(data, gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   
-  # Define global model file path
+  # Define paths for stored results
   global_model_path <- file.path(output_dir, "global_model_coefficients.csv")
+  gamma_stats_path <- file.path(output_dir, "gamma_statistics.csv")
+  gamma_values_path <- file.path(output_dir, "gamma_values.csv")
   
-  # If global model exists, load it and skip recalculations
+  # If global model exists, load results and skip recomputation
   if (file.exists(global_model_path)) {
     log_info("Global model already exists. Skipping computation.")
+    
+    # Load previously computed data
     globaldf <- read.csv(file.path(output_dir, "global_analysis.csv"))
+    
+    # Restore gamma values
+    gamma_stats <- read.csv(gamma_stats_path)
+    gamma_values <- read.csv(gamma_values_path)
+    
+    gamma <- list(
+      mu = gamma_stats$mu[1],
+      se = gamma_stats$se[1],
+      values = gamma_values$value
+    )
   } else {
     log_info("Global model does not exist. Running estimation...")
     
@@ -121,6 +135,23 @@ run_scenario_analysis <- function(data, gamma_filter,
     )
     write.csv(global_model_coef, global_model_path, row.names = FALSE)
     log_info("Global model results saved.")
+    
+    # Save gamma statistics
+    gamma_df <- data.frame(
+      mu = gamma$mu,
+      se = gamma$se,
+      ci_lower = gamma$mu - 2 * gamma$se,
+      ci_upper = gamma$mu + 2 * gamma$se
+    )
+    write.csv(gamma_df, gamma_stats_path, row.names = FALSE)
+    
+    gamma_values_df <- data.frame(
+      quantile = seq(0.05, 0.95, length.out = length(gamma$values)),
+      value = gamma$values
+    )
+    write.csv(gamma_values_df, gamma_values_path, row.names = FALSE)
+    
+    log_info("Gamma statistics saved.")
   }
   
   # Run regional analysis
