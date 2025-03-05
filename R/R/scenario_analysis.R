@@ -4,64 +4,63 @@ library(lfe)
 library(ggplot2)
 library(logger)
 
+# Run the overall scenario analysis.
 run_scenario_analysis <- function(data, gamma_filter, 
                                   use_weights = TRUE, 
                                   collapse_batch = FALSE, 
                                   parallel = FALSE,
                                   ncores = 1,
+                                  test = FALSE,  # Test flag
                                   base_model_fn = NULL, 
                                   regional_model_fn = NULL,
                                   regional_formula = mean_normed ~ delta_temp + I(delta_temp^2)) {
   
-  log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}")
+  log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}, test: {test}")
   
-  # Set up directories for results.
+  if (is.null(base_model_fn)) {
+    base_model_fn <- function(data, weights) {
+      felm(log_delta_mortality ~ loggdppc | group + year | 0 | group + year,
+           data = data, weights = weights)
+    }
+  }
+  
+  # Determine weights.
+  weights <- if (use_weights) ifelse(!is.na(data$population), data$population, 1) else rep(1, nrow(data))
+  
   base_path <- setup_environment(collapse_batch = collapse_batch)
-  
-  # Define output directory for analysis results
   output_dir <- file.path(base_path, "analysis_scenarios", gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   
-  # Define paths for stored results
-  global_model_path <- file.path(output_dir, "global_model_coefficients.csv")
-  gamma_stats_path <- file.path(output_dir, "gamma_statistics.csv")
-  gamma_values_path <- file.path(output_dir, "gamma_values.csv")
+  log_info("Base path for results: {base_path}")
   
-  # If global model exists, load results and skip recomputation
+  # Check if the global model already exists
+  gamma_file <- file.path(output_dir, "gamma_statistics.csv")
+  global_model_path <- file.path(output_dir, "global_model_coefficients.csv")
+  
   if (file.exists(global_model_path)) {
     log_info("Global model already exists. Skipping computation.")
     
-    # Load previously computed data
+    # Load gamma values from saved results
+    gamma_df <- read.csv(gamma_file)
+    gamma <- list(
+      mu = gamma_df$mu[1],
+      se = gamma_df$se[1],
+      values = seq(gamma_df$ci_lower[1], gamma_df$ci_upper[1], length.out = 19)
+    )
+    
+    # Load previously saved global analysis
     globaldf <- read.csv(file.path(output_dir, "global_analysis.csv"))
     
-    # Restore gamma values
-    gamma_stats <- read.csv(gamma_stats_path)
-    gamma_values <- read.csv(gamma_values_path)
+    # Load mod_global from previously saved coefficients
+    mod_global <- read.csv(global_model_path)
     
-    gamma <- list(
-      mu = gamma_stats$mu[1],
-      se = gamma_stats$se[1],
-      values = gamma_values$value
-    )
+    # Assign mod as NULL (it's not used when skipping)
+    mod <- NULL
   } else {
-    log_info("Global model does not exist. Running estimation...")
+    log_info("Running global model estimation...")
     
-    # Set default model function if not provided
-    if (is.null(base_model_fn)) {
-      base_model_fn <- function(data, weights) {
-        felm(log_delta_mortality ~ loggdppc | group + year | 0 | group + year,
-             data = data, weights = weights)
-      }
-    }
-    
-    # Determine weights
-    weights <- if (use_weights) ifelse(!is.na(data$population), data$population, 1) else rep(1, nrow(data))
-    log_info("Using weights: {use_weights}. Number of non-NA population values: {sum(!is.na(data$population))}")
-    
-    # Compute gamma parameters
     mod <- base_model_fn(data, weights)
-    log_info("Base model fit completed. Number of coefficients estimated: {length(mod$coefficients)}")
     
     gamma <- list(
       mu = mod$coefficients[1],
@@ -74,9 +73,7 @@ run_scenario_analysis <- function(data, gamma_filter,
       gamma$mu <- mean(gamma$values, na.rm = TRUE)
       gamma$se <- sd(gamma$values, na.rm = TRUE) / sqrt(length(gamma$values))
     }
-    log_info("Filtered gamma values. Remaining count: {length(gamma$values)}")
     
-    # Prepare global data
     if (collapse_batch) {
       globaldf <- data %>%
         group_by(year, rcp, ssp, model, gcm) %>%
@@ -106,14 +103,10 @@ run_scenario_analysis <- function(data, gamma_filter,
           tas_preind2 = tas_preind^2
         )
     }
-    log_info("Global data prepared with {nrow(globaldf)} observations.")
     
-    # Run global model estimation
     mod_global <- lm(mean_normed ~ tas_preind + tas_preind2,
                      data = globaldf,
                      weights = if (use_weights) globaldf$population else NULL)
-    
-    log_info("Global model fit completed. Coefficients estimated: {length(coef(mod_global))}")
     
     globaldf$resids <- if (!is.null(mod_global$na.action)) {
       x <- rep(NA, nrow(globaldf))
@@ -123,7 +116,14 @@ run_scenario_analysis <- function(data, gamma_filter,
       residuals(mod_global)
     }
     
-    # Save global model results
+    gamma_df <- data.frame(
+      mu = gamma$mu,
+      se = gamma$se,
+      ci_lower = gamma$mu - 2 * gamma$se,
+      ci_upper = gamma$mu + 2 * gamma$se
+    )
+    write.csv(gamma_df, gamma_file, row.names = FALSE)
+    
     write.csv(globaldf, file.path(output_dir, "global_analysis.csv"), row.names = FALSE)
     
     global_model_coef <- data.frame(
@@ -134,35 +134,17 @@ run_scenario_analysis <- function(data, gamma_filter,
       p_value = summary(mod_global)$coefficients[, "Pr(>|t|)"]
     )
     write.csv(global_model_coef, global_model_path, row.names = FALSE)
-    log_info("Global model results saved.")
-    
-    # Save gamma statistics
-    gamma_df <- data.frame(
-      mu = gamma$mu,
-      se = gamma$se,
-      ci_lower = gamma$mu - 2 * gamma$se,
-      ci_upper = gamma$mu + 2 * gamma$se
-    )
-    write.csv(gamma_df, gamma_stats_path, row.names = FALSE)
-    
-    gamma_values_df <- data.frame(
-      quantile = seq(0.05, 0.95, length.out = length(gamma$values)),
-      value = gamma$values
-    )
-    write.csv(gamma_values_df, gamma_values_path, row.names = FALSE)
-    
-    log_info("Gamma statistics saved.")
   }
   
-  # Run regional analysis
-  regional_results <- run_regional_analysis(data, gamma$values, gamma, globaldf, output_dir)
+  # Run regional analysis, passing the test flag
+  regional_results <- run_regional_analysis(data, gamma$values, gamma, globaldf, output_dir, test = test)
   
   log_info("Scenario analysis complete.")
   return(list(
     gamma = gamma,
     globaldf = globaldf,
     mod_global = mod_global,
-    main_model = mod,
+    main_model = mod,  # Will be NULL if skipping
     regional_results = regional_results,
     base_path = base_path
   ))
