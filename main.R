@@ -4,8 +4,6 @@ source("R/R/utils.R")
 # Set working directory
 script_path <- get_script_path()
 setwd(script_path)
-
-# Print confirmation
 cat(sprintf("Working directory set to: %s\n", script_path))
 
 
