@@ -1,12 +1,6 @@
 # File: R/R/resources.R
 library(parallel)
 
-# Detect the total number of CPU cores.
-detect_cores <- function() {
-  total_cores <- parallel::detectCores()
-  return(total_cores)
-}
-
 # Detect available RAM (in MB).
 detect_ram <- function() {
   if (.Platform$OS.type == "windows") {
@@ -29,12 +23,4 @@ detect_ram <- function() {
     max_ram_mb <- 16384  # Default if undetectable.
   }
   return(max_ram_mb)
-}
-
-# Compute a safe number of cores based on average region memory usage.
-compute_safe_cores <- function(avg_region_size, max_ram_mb, baseline_cores) {
-  max_ram_bytes <- max_ram_mb * 1024^2
-  safe_n_cores <- floor(max_ram_bytes / avg_region_size)
-  n_cores_safe <- min(baseline_cores, safe_n_cores)
-  return(n_cores_safe)
 }
