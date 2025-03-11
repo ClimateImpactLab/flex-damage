@@ -7,7 +7,8 @@ library(progressr)
 
 # Run regional analysis for each region.
 # If `test = TRUE`, only a subset of 10 regions is analyzed.
-run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_dir, test = FALSE) {
+run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_dir, test = FALSE, 
+                                  save_results = TRUE, create_plots = TRUE) {
   results <- data.frame()
   all_regions <- unique(data$region)
   
@@ -121,17 +122,24 @@ run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_di
     } # end loop over regions
   }) # end with_progress
   
-  # Determine the output filename based on test mode
-  output_filename <- if (test) "regional_polynomials_test.csv" else "regional_polynomials.csv"
+  # Save results and create plots only if requested
+  if (save_results) {
+    # Determine the output filename based on test mode
+    output_filename <- if (test) "regional_polynomials_test.csv" else "regional_polynomials.csv"
+    
+    # Save regional results
+    write.csv(results, file.path(output_dir, output_filename), row.names = FALSE)
+    log_info("Results saved to %s", file.path(output_dir, output_filename))
+  }
   
-  # Save regional results
-  write.csv(results, file.path(output_dir, output_filename), row.names = FALSE)
-  
-  # Generate an example plot (distribution of the alpha coefficient)
-  p <- ggplot(results, aes(x = alpha)) +
-    geom_histogram(bins = 30) +
-    ggtitle("Distribution of Alpha Coefficients")
-  ggsave(file.path(output_dir, "regional_alpha_distribution.pdf"), p)
+  if (create_plots) {
+    # Generate an example plot (distribution of the alpha coefficient)
+    p <- ggplot(results, aes(x = alpha)) +
+      geom_histogram(bins = 30) +
+      ggtitle("Distribution of Alpha Coefficients")
+    ggsave(file.path(output_dir, "regional_alpha_distribution.pdf"), p)
+    log_info("Plot saved to %s", file.path(output_dir, "regional_alpha_distribution.pdf"))
+  }
   
   log_info("Regional analysis complete.")
   return(results)

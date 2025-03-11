@@ -101,7 +101,7 @@ parallel_processing <- FALSE            # Execute regional computations in paral
 n_cores <- n_cores_flexible
 gdp_baseline_START <- 2010
 gdp_baseline_END <- 2020
-test_mode <- TRUE
+test_mode <- FALSE
 # Print configuration.
 log_info("User configuration set:")
 cat(blue("Parameters Selected:\n"))
@@ -140,7 +140,9 @@ results <- run_scenario_analysis(
   parallel = parallel_processing,
   ncores = n_cores,
   base_model_fn = custom_base_model_fn,  # Overall model function
-  test = test_mode
+  test = test_mode,
+  save_regional_results = TRUE, 
+  create_regional_plots = TRUE
   # Note: regional analysis now uses gamma values internally.
 )
 

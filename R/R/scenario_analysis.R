@@ -13,6 +13,8 @@ run_scenario_analysis <- function(data, gamma_filter,
                                   test = FALSE,  # Test flag
                                   base_model_fn = NULL, 
                                   regional_model_fn = NULL,
+                                  save_regional_results = TRUE, 
+                                  create_regional_plots = TRUE,
                                   regional_formula = mean_normed ~ delta_temp + I(delta_temp^2)) {
   
   log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}, test: {test}")
@@ -143,7 +145,7 @@ run_scenario_analysis <- function(data, gamma_filter,
   }
   
   # Run regional analysis, passing the test flag
-  regional_results <- run_regional_analysis(data, gamma$values, gamma, globaldf, output_dir, test = test)
+  regional_results <- run_regional_analysis(data, gamma$values, gamma, globaldf, output_dir, test = test, save_regional_results = TRUE, create_regional_plots = TRUE)
   
   log_info("Scenario analysis complete.")
   return(list(
