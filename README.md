@@ -99,6 +99,7 @@ results/
     └── logs/
         └── analysis_log.txt
 ```
+
 ## Analysis Process
 The framework follows these steps:
 
@@ -146,3 +147,72 @@ Common issues and solutions:
 - Convexity constraints are applied when necessary.
 - Residual analysis is performed to evaluate model fit.
 - Progress tracking uses Unicode spinners for visual feedback.
+
+## Result Analysis and Visualization
+
+After running the main analysis, you can use the `automated_reports_alphaFit.R` script to generate comprehensive reports and visualizations from the regional polynomial results:
+
+```{bash}
+├── automated_reports_alphaFit.R  # Script for generating reports from analysis results
+```
+
+## Report Generation Features
+
+The report generator provides different types of analysis:
+
+- **Basic Coefficient Analysis**: Examines the distribution of coefficients and creates visualizations of regional damage functions.
+- **Zero Crossing Analysis**: Identifies temperature thresholds where damage functions cross zero.
+- **Convexity Analysis**: Evaluates the proportion of regions with convex responses to temperature changes.
+- **Prediction Evaluation**: Compares predicted values against reported data to assess model performance.
+
+## Using the Report Generator
+
+1. Configure the report options at the top of `automated_reports_alphaFit.R`:
+
+    ```{r}
+    # Enable or disable specific report types
+    generate_basic_report <- TRUE      # Basic coefficient analysis and plots
+    generate_prediction_report <- TRUE # Prediction vs actual analysis
+    generate_pdf_report <- TRUE        # Combined PDF report of all results
+
+    # Input/output configuration
+    scale_factor <- 1e5                # Scaling factor for coefficients
+    results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/unweighted"
+    input_file <- file.path(results_path, "regional_polynomials.csv")
+    input_data_csv <- "data/mortality_regression_full_mc.csv"  # Original data for prediction analysis
+
+    # Set GDP baseline years
+    gdp_baseline_start <- 2010
+    gdp_baseline_end <- 2020
+    # Set batch collapse option
+    collapse_batch <- FALSE
+    # Monte Carlo simulation parameters for prediction analysis
+    n_draws <- 100              
+    ```
+
+2. Run the script after completing the main analysis:
+    ```{r}
+    source("automated_reports_alphaFit.R")
+    ```
+## Report Outputs
+
+The script generates outputs in an organized directory structure:
+
+```{bash}
+results/.../alphaFitReport/
+├── figures/
+│   ├── regional_damage_function.pdf
+│   ├── zero_crossings_histogram.pdf
+│   ├── slope_histogram.pdf
+│   ├── scatter_plot_predicted_vs_reported.pdf
+│   ├── scatter_plot_predicted_mean_vs_reported.pdf
+│   └── worst_offenders_top5.pdf
+├── tables/
+│   ├── summary_statistics.csv
+│   ├── zero_crossings_distribution.csv
+│   ├── slope_distribution.csv
+│   ├── convex_polynomial_distribution.csv
+│   ├── correlation_values.csv
+│   └── r2_values.csv
+└── damage_function_report.pdf
+```
