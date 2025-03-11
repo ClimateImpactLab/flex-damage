@@ -17,6 +17,12 @@ run_scenario_analysis <- function(data, gamma_filter,
   
   log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}, test: {test}")
   
+  if ("delta_mortality" %in% names(data)) {
+    data$log_delta_mortality <- log(data$delta_mortality)
+  } else {
+    stop("Error: Column 'delta_mortality' not found in the dataframe.")
+  }
+  
   if (is.null(base_model_fn)) {
     base_model_fn <- function(data, weights) {
       felm(log_delta_mortality ~ loggdppc | group + year | 0 | group + year,

@@ -54,32 +54,15 @@ load_and_process_data <- function(csv_file_path, required_columns, gdp_baseline_
   # Compute additional variables.
   df$loggdppc <- log(df$gdppc)
   
-  # Compute GDP reference values (using years 2010-2020).
-  if (collapse_batch_data) {
-    gdp_reference <- df %>%
-      filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
-      group_by(region, ssp, rcp, model) %>%
-      summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
-    
-    df <- df %>%
-      left_join(gdp_reference, by = c("region", "ssp", "rcp", "model")) %>%
-      mutate(lgdp_delta = loggdppc - avg_gdp_ref)
-    
-  } else {
-    gdp_reference <- df %>%
-      filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
-      group_by(batch, region, ssp, rcp, model) %>%
-      summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
-    
-    df <- df %>%
-      left_join(gdp_reference, by = c("batch", "region", "ssp", "rcp", "model")) %>%
-      mutate(lgdp_delta = loggdppc - avg_gdp_ref)
-  }
+  # Compute GDP reference values (using variable years).
+  gdp_reference <- df %>%
+    filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
+    group_by(region, ssp, rcp, model) %>%
+    summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
   
-  # Compute the logarithm of delta_mortality and filter out extreme low values.
-  df$log_delta_mortality <- log(df$delta_mortality)
-  lower_bound <- quantile(df$log_delta_mortality, 0.05, na.rm = TRUE)
-  df$log_delta_mortality[df$log_delta_mortality < lower_bound] <- NA
+  df <- df %>%
+    left_join(gdp_reference, by = c("region", "ssp", "rcp", "model")) %>%
+    mutate(lgdp_delta = loggdppc - avg_gdp_ref)
   
   # Create additional grouping variables.
   df$log_region <- paste0(sign(df$delta_mortality), '-', df$region)
