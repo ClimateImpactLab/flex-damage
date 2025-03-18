@@ -144,6 +144,35 @@ run_scenario_analysis <- function(data, gamma_filter,
     write.csv(global_model_coef, global_model_path, row.names = FALSE)
   }
   
+  # **1. Graph for Mortality and Temperature relationship
+  p1 <- ggplot(globaldf, aes(x = tas_preind, y = mean_normed)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = TRUE) +
+    labs(x = "Temperature anomaly (°C)",
+         y = "Normalized mortality",
+         title = paste("Global mortality response to temperature -",
+                       gamma_filter,
+                       if(use_weights) "- population weighted" else "- unweighted")) +
+    theme_minimal()
+  
+  ggsave(file.path(output_dir, "mortality_temp_relationship.pdf"), p1)
+  log_info("Saved plot: mortality_temp_relationship.pdf")
+  
+  # **2. Graph for residuals and time relationship**
+  p2 <- ggplot(globaldf, aes(x = year, y = resids)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "loess", se = TRUE) +
+    labs(x = "Year",
+         y = "Residuals",
+         title = paste("Global model residuals over time -",
+                       gamma_filter,
+                       if(use_weights) "- population weighted" else "- unweighted")) +
+    theme_minimal()
+  
+  ggsave(file.path(output_dir, "residuals_time.pdf"), p2)
+  log_info("Saved plot: residuals_time.pdf")
+  
+  
   # Run regional analysis, passing the test flag
   regional_results <- run_regional_analysis(data, gamma$values, gamma, globaldf, output_dir, test = test, save_regional_results = TRUE, create_regional_plots = TRUE)
   
