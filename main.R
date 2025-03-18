@@ -65,8 +65,6 @@ cat(sprintf("Total RAM available: %.1f MB (%.1f GB)\n", max_ram_mb, max_ram_mb /
 n_cores_flexible <- total_cores - 2
 cat(sprintf("Using %d cores for parallel processing.\n", n_cores_flexible))
 
-# Set future globals maximum size to 95% of available RAM.
-options(future.globals.maxSize = 0.95 * max_ram_bytes)
 
 # --- Experiment Configuration (provided by the user) ---
 required_columns <- c("region", "year", "batch", "gcm", "model", "rcp", "ssp",
@@ -74,7 +72,7 @@ required_columns <- c("region", "year", "batch", "gcm", "model", "rcp", "ssp",
 csv_file_path <- "data/mortality_regression_full_mc.csv"
 
 # Set parameters (these replace the former config.R).
-gamma_filter <- "all_gamma_values"      # Options: "all_gamma_values", "positive_gamma_only"
+gamma_filter <- "positive_gamma_only"      # Options: "all_gamma_values", "positive_gamma_only"
 weighting <- "population_weighted"                 # Options: "population_weighted", "unweighted"
 collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
