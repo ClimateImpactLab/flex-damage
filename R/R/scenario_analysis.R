@@ -3,6 +3,7 @@ library(dplyr)
 library(lfe)
 library(ggplot2)
 library(logger)
+source("R/R/utils.R")
 
 # Run the overall scenario analysis.
 run_scenario_analysis <- function(data, gamma_filter, 
@@ -20,7 +21,7 @@ run_scenario_analysis <- function(data, gamma_filter,
   log_info("Running scenario analysis with gamma_filter: {gamma_filter}, use_weights: {use_weights}, collapse_batch: {collapse_batch}, parallel: {parallel}, ncores: {ncores}, test: {test}")
   
   if ("delta_mortality" %in% names(data)) {
-    data$log_delta_mortality <- log(data$delta_mortality)
+    data$log_delta_mortality <- safe_log(data$delta_mortality)
   } else {
     stop("Error: Column 'delta_mortality' not found in the dataframe.")
   }
@@ -35,7 +36,12 @@ run_scenario_analysis <- function(data, gamma_filter,
   # Determine weights.
   weights <- if (use_weights) ifelse(!is.na(data$population), data$population, 1) else rep(1, nrow(data))
   
-  base_path <- setup_environment(collapse_batch = collapse_batch)
+  base_path <- if (test) {
+    file.path("results_test", setup_environment(collapse_batch = collapse_batch))
+  } else {
+    file.path("results", setup_environment(collapse_batch = collapse_batch))
+  }
+  
   output_dir <- file.path(base_path, "analysis_scenarios", gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
