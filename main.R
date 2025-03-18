@@ -75,7 +75,7 @@ csv_file_path <- "data/mortality_regression_full_mc.csv"
 
 # Set parameters (these replace the former config.R).
 gamma_filter <- "all_gamma_values"      # Options: "all_gamma_values", "positive_gamma_only"
-weighting <- "weighted"                 # Options: "population_weighted", "unweighted"
+weighting <- "population_weighted"                 # Options: "population_weighted", "unweighted"
 collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
@@ -119,11 +119,10 @@ results <- run_scenario_analysis(
   collapse_batch = collapse_batch,
   parallel = parallel_processing,
   ncores = n_cores,
-  base_model_fn = custom_base_model_fn,  # Overall model function
+  base_model_fn = custom_base_model_fn, 
   test = test_mode,
   save_regional_results = TRUE, 
   create_regional_plots = TRUE
-  # Note: regional analysis now uses gamma values internally.
 )
 
 # --- Save Base Results ---
