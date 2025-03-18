@@ -73,7 +73,7 @@ csv_file_path <- "data/mortality_regression_full_mc.csv"
 
 # Set parameters (these replace the former config.R).
 gamma_filter <- "positive_gamma_only"      # Options: "all_gamma_values", "positive_gamma_only"
-weighting <- "population_weighted"                 # Options: "population_weighted", "unweighted"
+weighting <- "unweighted"                 # Options: "population_weighted", "unweighted"
 collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
@@ -113,7 +113,7 @@ custom_base_model_fn <- function(data, weights) {
 results <- run_scenario_analysis(
   data = df,
   gamma_filter = gamma_filter,
-  use_weights = (weighting == "population_weighted"),
+  use_weights = (weighting == weighting),
   collapse_batch = collapse_batch,
   parallel = parallel_processing,
   ncores = n_cores,
