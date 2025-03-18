@@ -8,7 +8,7 @@ library(progressr)
 # Run regional analysis for each region.
 # If `test = TRUE`, only a subset of 10 regions is analyzed.
 run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_dir, test = FALSE, 
-                                  save_results = TRUE, create_plots = TRUE) {
+                                  save_regional_results = TRUE, create_regional_plots = TRUE) {
   results <- data.frame()
   all_regions <- unique(data$region)
   
@@ -123,7 +123,7 @@ run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_di
   }) # end with_progress
   
   # Save results and create plots only if requested
-  if (save_results) {
+  if (save_regional_results) {
     # Determine the output filename based on test mode
     output_filename <- if (test) "regional_polynomials_test.csv" else "regional_polynomials.csv"
     
@@ -132,7 +132,7 @@ run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_di
     log_info("Results saved to %s", file.path(output_dir, output_filename))
   }
   
-  if (create_plots) {
+  if (create_regional_plots) {
     # Generate an example plot (distribution of the alpha coefficient)
     p <- ggplot(results, aes(x = alpha)) +
       geom_histogram(bins = 30) +
