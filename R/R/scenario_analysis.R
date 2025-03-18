@@ -43,8 +43,17 @@ run_scenario_analysis <- function(data, gamma_filter,
   log_info("Base path for results: {base_path}")
   
   # Check if the global model already exists
-  gamma_file <- file.path(output_dir, "gamma_statistics.csv")
-  global_model_path <- file.path(output_dir, "global_model_coefficients.csv")
+  
+  base_model_dir <- file.path(base_path, "base_model")
+  dir.create(base_model_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  global_model_path <- file.path(base_model_dir, "global_model_coefficients.csv")
+  gamma_statistics_path <- file.path(base_model_dir, "gamma_statistics.csv")
+  gamma_distribution_path <- file.path(base_model_dir, "gamma_distribution.pdf")
+  gamma_file <- file.path(base_model_dir, "gamma_statistics.csv")
+  
+  log_info("Global model path: {global_model_path}")
+
   
   if (file.exists(global_model_path)) {
     log_info("Global model already exists. Skipping computation.")
@@ -76,10 +85,34 @@ run_scenario_analysis <- function(data, gamma_filter,
       values = qnorm(seq(0.05, 0.95, by = 0.05), mod$coefficients[1], mod$cse[1])
     )
     
+    gamma_unfiltered <- gamma$mu
+    
+    # Save gamma distribution plot
+    pdf(gamma_distribution_path)
+    plot(density(gamma$values), 
+         main = "Distribution of gamma values",
+         xlab = "Gamma",
+         ylab = "Density")
+    abline(v = gamma$mu, col = "red")
+    abline(v = gamma$mu + 2 * gamma$se, col = "blue", lty = 2)
+    abline(v = gamma$mu - 2 * gamma$se, col = "blue", lty = 2)
+    dev.off()
+    log_info("Gamma distribution plot saved to: {gamma_distribution_path}")
+  
+    
     if (gamma_filter == "positive_gamma_only") {
       gamma$values <- gamma$values[gamma$values > 0]
+      
+      if (length(gamma$values) == 0) {
+        stop("Error: No positive values in gamma$values after filtering. Unable to compute gamma$mu.")
+      }
+      
       gamma$mu <- mean(gamma$values, na.rm = TRUE)
       gamma$se <- sd(gamma$values, na.rm = TRUE) / sqrt(length(gamma$values))
+      
+      if (is.na(gamma$mu) || is.infinite(gamma$mu)) {
+        stop("Error: gamma$mu is invalid after filtering positive values.")
+      }
     }
     
     if (collapse_batch) {
@@ -93,7 +126,7 @@ run_scenario_analysis <- function(data, gamma_filter,
           .groups = 'drop'
         ) %>%
         mutate(
-          mean_normed = mean / (gdp_diff^gamma$mu),
+          mean_normed = mean / (gdp_diff^gamma_unfiltered),
           tas_preind2 = tas_preind^2
         )
     } else {
@@ -107,7 +140,7 @@ run_scenario_analysis <- function(data, gamma_filter,
           .groups = 'drop'
         ) %>%
         mutate(
-          mean_normed = mean / (gdp_diff^gamma$mu),
+          mean_normed = mean / (gdp_diff^gamma_unfiltered),
           tas_preind2 = tas_preind^2
         )
     }
@@ -130,9 +163,8 @@ run_scenario_analysis <- function(data, gamma_filter,
       ci_lower = gamma$mu - 2 * gamma$se,
       ci_upper = gamma$mu + 2 * gamma$se
     )
-    write.csv(gamma_df, gamma_file, row.names = FALSE)
-    
-    write.csv(globaldf, file.path(output_dir, "global_analysis.csv"), row.names = FALSE)
+    write.csv(gamma_df, gamma_statistics_path, row.names = FALSE)
+    log_info("Gamma statistics saved to: {gamma_statistics_path}")
     
     global_model_coef <- data.frame(
       term = names(coef(mod_global)),
@@ -142,6 +174,7 @@ run_scenario_analysis <- function(data, gamma_filter,
       p_value = summary(mod_global)$coefficients[, "Pr(>|t|)"]
     )
     write.csv(global_model_coef, global_model_path, row.names = FALSE)
+    log_info("Global model coefficients saved to: {global_model_path}")
   }
   
   # **1. Graph for Mortality and Temperature relationship
