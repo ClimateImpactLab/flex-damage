@@ -72,14 +72,14 @@ required_columns <- c("region", "year", "batch", "gcm", "model", "rcp", "ssp",
 csv_file_path <- "data/mortality_regression_full_mc.csv"
 
 # Set parameters (these replace the former config.R).
-gamma_filter <- "positive_gamma_only"      # Options: "all_gamma_values", "positive_gamma_only"
-weighting <- "unweighted"                 # Options: "population_weighted", "unweighted"
+gamma_filter <- "all_gamma_values"      # Options: "all_gamma_values", "positive_gamma_only"
+weighting <- "population_weighted"                 # Options: "population_weighted", "unweighted"
 collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
 gdp_baseline_START <- 2010
 gdp_baseline_END <- 2020
-test_mode <- FALSE
+test_mode <- TRUE
 # Print configuration.
 log_info("User configuration set:")
 cat(blue("Parameters Selected:\n"))
@@ -88,6 +88,12 @@ cat(green(sprintf("  weighting: %s\n", weighting)))
 cat(green(sprintf("  collapse_regional_data: %s\n", collapse_batch)))
 cat(green(sprintf("  parallel_processing: %s\n", parallel_processing)))
 cat(green(sprintf("  n_cores: %s\n", n_cores)))
+cat(green(sprintf("  test_mode: %s\n", test_mode)))
+
+# --- Environment Setup & Logging ---
+base_path <- setup_environment(collapse_batch = collapse_batch)
+
+init_logging(base_path)
 
 # --- Data Loading & Processing ---
 log_info("Loading and processing data...")
@@ -96,10 +102,7 @@ df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start 
 
 log_info("Data loaded and processed successfully.")
 
-# --- Environment Setup & Logging ---
-base_path <- setup_environment(collapse_batch = collapse_batch)
 
-init_logging(base_path)
 
 # --- Define User-Specified Overall Model Function (Optional) ---
 

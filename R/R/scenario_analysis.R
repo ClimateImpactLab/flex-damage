@@ -36,11 +36,7 @@ run_scenario_analysis <- function(data, gamma_filter,
   # Determine weights.
   weights <- if (use_weights) ifelse(!is.na(data$population), data$population, 1) else rep(1, nrow(data))
   
-  base_path <- if (test) {
-    file.path("results_test", setup_environment(collapse_batch = collapse_batch))
-  } else {
-    file.path("results", setup_environment(collapse_batch = collapse_batch))
-  }
+  base_path <- setup_environment(collapse_batch = collapse_batch, test = test)
   
   output_dir <- file.path(base_path, "analysis_scenarios", gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
