@@ -40,7 +40,14 @@ run_scenario_analysis <- function(data, gamma_filter,
   
   output_dir <- file.path(base_path, "analysis_scenarios", gamma_filter,
                           if (use_weights) "population_weighted" else "unweighted")
+  
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(file.path(output_dir, "logs"), recursive = TRUE, showWarnings = FALSE)
+  init_logging(output_dir)
+  
+  
+  scenario_log_dir <- file.path(output_dir, "logs")
+  dir.create(scenario_log_dir, recursive = TRUE, showWarnings = FALSE)
   
   log_info("Base path for results: {base_path}")
   
@@ -54,32 +61,31 @@ run_scenario_analysis <- function(data, gamma_filter,
   gamma_distribution_path <- file.path(base_model_dir, "gamma_distribution.pdf")
   gamma_file <- file.path(base_model_dir, "gamma_statistics.csv")
   
-  log_info("Global model path: {global_model_path}")
-
+  
+  mod <- base_model_fn(data, weights)
   
   if (file.exists(global_model_path)) {
     log_info("Global model already exists. Skipping computation.")
     
-    # Load gamma values from saved results
-    gamma_df <- read.csv(gamma_file)
+    # Load gamma statistics
+    gamma_df <- read.csv(gamma_statistics_path)
     gamma <- list(
       mu = gamma_df$mu[1],
       se = gamma_df$se[1],
       values = seq(gamma_df$ci_lower[1], gamma_df$ci_upper[1], length.out = 19)
     )
     
-    # Load previously saved global analysis
-    globaldf <- read.csv(file.path(output_dir, "global_analysis.csv"))
+    gamma_unfiltered <- gamma$mu
     
-    # Load mod_global from previously saved coefficients
-    mod_global <- read.csv(global_model_path)
+
+    # Load global model coefficients
+    global_model_coef <- read.csv(global_model_path)
+    mod_global <- base_model_fn(data, weights)
+    mod_global$coefficients <- setNames(global_model_coef$estimate, global_model_coef$term)
     
-    # Assign mod as NULL (it's not used when skipping)
-    mod <- NULL
   } else {
     log_info("Running global model estimation...")
-    
-    mod <- base_model_fn(data, weights)
+
     
     gamma <- list(
       mu = mod$coefficients[1],
@@ -100,7 +106,7 @@ run_scenario_analysis <- function(data, gamma_filter,
     abline(v = gamma$mu - 2 * gamma$se, col = "blue", lty = 2)
     dev.off()
     log_info("Gamma distribution plot saved to: {gamma_distribution_path}")
-  
+    
     
     if (gamma_filter == "positive_gamma_only") {
       gamma$values <- gamma$values[gamma$values > 0]
@@ -116,49 +122,64 @@ run_scenario_analysis <- function(data, gamma_filter,
         stop("Error: gamma$mu is invalid after filtering positive values.")
       }
     }
+  }
+  
+  # Compute globaldf
+  if (collapse_batch) {
+    globaldf <- data %>%
+      group_by(year, rcp, ssp, model, gcm) %>%
+      summarize(
+        mean = sum(delta_mortality * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        tas_preind = sum(delta_temp * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        gdp_diff = sum(exp(lgdp_delta) * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        population = sum(population, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(
+        mean_normed = mean / (gdp_diff^gamma_unfiltered),
+        tas_preind2 = tas_preind^2
+      )
+  } else {
+    globaldf <- data %>%
+      group_by(batch, year, rcp, ssp, model, gcm) %>%
+      summarize(
+        mean = sum(delta_mortality * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        tas_preind = sum(delta_temp * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        gdp_diff = sum(exp(lgdp_delta) * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
+        population = sum(population, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(
+        mean_normed = mean / (gdp_diff^gamma_unfiltered),
+        tas_preind2 = tas_preind^2
+      )
+  }
+  
+  log_info("Global model path: {global_model_path}")
+  
+  
+  mod_global <- lm(mean_normed ~ tas_preind + tas_preind2,
+                   data = globaldf,
+                   weights = if (use_weights) globaldf$population else NULL)
+  
+  # compute model if necessary
+  if (file.exists(global_model_path)) {
     
-    if (collapse_batch) {
-      globaldf <- data %>%
-        group_by(year, rcp, ssp, model, gcm) %>%
-        summarize(
-          mean = sum(delta_mortality * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          tas_preind = sum(delta_temp * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          gdp_diff = sum(exp(lgdp_delta) * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          population = sum(population, na.rm = TRUE),
-          .groups = 'drop'
-        ) %>%
-        mutate(
-          mean_normed = mean / (gdp_diff^gamma_unfiltered),
-          tas_preind2 = tas_preind^2
-        )
-    } else {
-      globaldf <- data %>%
-        group_by(batch, year, rcp, ssp, model, gcm) %>%
-        summarize(
-          mean = sum(delta_mortality * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          tas_preind = sum(delta_temp * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          gdp_diff = sum(exp(lgdp_delta) * population, na.rm = TRUE) / sum(population, na.rm = TRUE),
-          population = sum(population, na.rm = TRUE),
-          .groups = 'drop'
-        ) %>%
-        mutate(
-          mean_normed = mean / (gdp_diff^gamma_unfiltered),
-          tas_preind2 = tas_preind^2
-        )
+    # Load global model coefficients
+    
+    global_model_coef <- read.csv(global_model_path)
+    log_info("Loaded global model coefficients. Preview:")
+    log_info(paste0(head(global_model_coef), collapse = "\n"))
+    mod_global$coefficients <- setNames(global_model_coef$estimate, global_model_coef$term)
+    
+    if ("std_error" %in% colnames(global_model_coef)) {
+      mod_global$cse <- setNames(global_model_coef$std_error, global_model_coef$term)
     }
+    log_info("Global model successfully reconstructed.")
     
-    mod_global <- lm(mean_normed ~ tas_preind + tas_preind2,
-                     data = globaldf,
-                     weights = if (use_weights) globaldf$population else NULL)
     
-    globaldf$resids <- if (!is.null(mod_global$na.action)) {
-      x <- rep(NA, nrow(globaldf))
-      x[-mod_global$na.action] <- residuals(mod_global)
-      x
-    } else {
-      residuals(mod_global)
-    }
-    
+  } else {
+
     gamma_df <- data.frame(
       mu = gamma$mu,
       se = gamma$se,
@@ -177,35 +198,51 @@ run_scenario_analysis <- function(data, gamma_filter,
     )
     write.csv(global_model_coef, global_model_path, row.names = FALSE)
     log_info("Global model coefficients saved to: {global_model_path}")
+    mod_global$coefficients <- setNames(global_model_coef$estimate, global_model_coef$term)
+    
+  }
+  globaldf$resids <- if (!is.null(mod_global$na.action)) {
+    x <- rep(NA, nrow(globaldf))
+    x[-mod_global$na.action] <- residuals(mod_global)
+    x
+  } else {
+    residuals(mod_global)
+  }
+
+  if ("resids" %in% colnames(globaldf)) {
+    
+    # **1. Graph for Mortality and Temperature relationship**
+    p1 <- ggplot(globaldf, aes(x = tas_preind, y = mean_normed)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = TRUE) +
+      labs(x = "Temperature anomaly (°C)",
+           y = "Normalized mortality",
+           title = paste("Global mortality response to temperature -",
+                         gamma_filter,
+                         if (use_weights) "- population weighted" else "- unweighted")) +
+      theme_minimal()
+    
+    ggsave(file.path(output_dir, "mortality_temp_relationship.pdf"), p1)
+    log_info("Saved plot: mortality_temp_relationship.pdf")
+    
+    # **2. Graph for residuals and time relationship**
+    p2 <- ggplot(globaldf, aes(x = year, y = resids)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth(method = "loess", se = TRUE) +
+      labs(x = "Year",
+           y = "Residuals",
+           title = paste("Global model residuals over time -",
+                         gamma_filter,
+                         if (use_weights) "- population weighted" else "- unweighted")) +
+      theme_minimal()
+    
+    ggsave(file.path(output_dir, "residuals_time.pdf"), p2)
+    log_info("Saved plot: residuals_time.pdf")
+    
+  } else {
+    log_error("Error: 'resids' column not found in globaldf.")
   }
   
-  # **1. Graph for Mortality and Temperature relationship
-  p1 <- ggplot(globaldf, aes(x = tas_preind, y = mean_normed)) +
-    geom_point(alpha = 0.5) +
-    geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = TRUE) +
-    labs(x = "Temperature anomaly (°C)",
-         y = "Normalized mortality",
-         title = paste("Global mortality response to temperature -",
-                       gamma_filter,
-                       if(use_weights) "- population weighted" else "- unweighted")) +
-    theme_minimal()
-  
-  ggsave(file.path(output_dir, "mortality_temp_relationship.pdf"), p1)
-  log_info("Saved plot: mortality_temp_relationship.pdf")
-  
-  # **2. Graph for residuals and time relationship**
-  p2 <- ggplot(globaldf, aes(x = year, y = resids)) +
-    geom_point(alpha = 0.5) +
-    geom_smooth(method = "loess", se = TRUE) +
-    labs(x = "Year",
-         y = "Residuals",
-         title = paste("Global model residuals over time -",
-                       gamma_filter,
-                       if(use_weights) "- population weighted" else "- unweighted")) +
-    theme_minimal()
-  
-  ggsave(file.path(output_dir, "residuals_time.pdf"), p2)
-  log_info("Saved plot: residuals_time.pdf")
   
   
   # Run regional analysis, passing the test flag

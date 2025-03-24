@@ -72,16 +72,16 @@ required_columns <- c("region", "year", "batch", "gcm", "model", "rcp", "ssp",
 csv_file_path <- "data/mortality_regression_full_mc.csv"
 
 # Set parameters (these replace the former config.R).
-gamma_filter <- "all_gamma_values"      # Options: "all_gamma_values", "positive_gamma_only"
-weighting <- "population_weighted"                 # Options: "population_weighted", "unweighted"
+gamma_filter <- "positive_gamma_only"      # Options: "all_gamma_values", "positive_gamma_only"
+weighting <- "unweighted"      # Options: "population_weighted", "unweighted"
 collapse_batch <- FALSE         # If TRUE, aggregate data during loading. (collapse batches)
 parallel_processing <- FALSE            # Execute regional computations in parallel.
 n_cores <- n_cores_flexible
 gdp_baseline_START <- 2010
 gdp_baseline_END <- 2020
-test_mode <- TRUE
+test_mode <- FALSE
 # Print configuration.
-log_info("User configuration set:")
+print("User configuration set:")
 cat(blue("Parameters Selected:\n"))
 cat(green(sprintf("  gamma_filter: %s\n", gamma_filter)))
 cat(green(sprintf("  weighting: %s\n", weighting)))
@@ -91,18 +91,13 @@ cat(green(sprintf("  n_cores: %s\n", n_cores)))
 cat(green(sprintf("  test_mode: %s\n", test_mode)))
 
 # --- Environment Setup & Logging ---
-base_path <- setup_environment(collapse_batch = collapse_batch)
-
-init_logging(base_path)
+base_path <- setup_environment(collapse_batch = collapse_batch, test = test_mode)
 
 # --- Data Loading & Processing ---
-log_info("Loading and processing data...")
-df <- load_and_process_data(csv_file_path, required_columns, gdp_baseline_start = gdp_baseline_START, gdp_baseline_end = gdp_baseline_END,
+df <- load_and_process_data(csv_file_path, required_columns, 
+                            gdp_baseline_start = gdp_baseline_START, 
+                            gdp_baseline_end = gdp_baseline_END,
                             collapse_batch_data = collapse_batch)
-
-log_info("Data loaded and processed successfully.")
-
-
 
 # --- Define User-Specified Overall Model Function (Optional) ---
 
@@ -116,7 +111,7 @@ custom_base_model_fn <- function(data, weights) {
 results <- run_scenario_analysis(
   data = df,
   gamma_filter = gamma_filter,
-  use_weights = (weighting == weighting),
+  use_weights = (weighting == "population_weighted"),
   collapse_batch = collapse_batch,
   parallel = parallel_processing,
   ncores = n_cores,
@@ -129,3 +124,4 @@ results <- run_scenario_analysis(
 # --- Save Base Results ---
 save_base_results(df, results$main_model, results$base_path)
 log_info("Analysis complete.")
+
