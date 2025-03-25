@@ -152,8 +152,8 @@ Common issues and solutions:
 
 After running the main analysis, you can use the `automated_reports_alphaFit.R` script to generate comprehensive reports and visualizations from the regional polynomial results:
 
-```{bash}
-├── automated_reports_alphaFit.R  # Script for generating reports from analysis results
+```{R}
+source("automated_reports_alphaFit.R") # Script for generating reports from analysis results
 ```
 
 ## Report Generation Features

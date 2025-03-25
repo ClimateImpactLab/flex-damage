@@ -13,6 +13,11 @@ do_generate_pdf_report <- TRUE        # Combined PDF report of all results
 # Input/output configuration
 scale_factor <- 1e5                # Scaling factor for coefficients
 results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/population_weighted"
+# Additional example  paths:
+# results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/unweighted"
+# results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/positive_gamma_only/population_weighted"
+# results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/positive_gamma_only/unweighted"
+
 input_file <- file.path(results_path, "regional_polynomials.csv")
 input_data_csv <- "data/mortality_regression_full_mc.csv"  # Original data for prediction analysis
 
