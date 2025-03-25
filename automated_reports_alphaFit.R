@@ -6,13 +6,13 @@
 # ======================================================================
 
 # Enable or disable specific report types
-generate_basic_report <- TRUE      # Basic coefficient analysis and plots
-generate_prediction_report <- TRUE # Prediction vs actual analysis
-generate_pdf_report <- TRUE        # Combined PDF report of all results
+do_generate_basic_report <- TRUE      # Basic coefficient analysis and plots
+do_generate_prediction_report <- TRUE # Prediction vs actual analysis
+do_generate_pdf_report <- TRUE        # Combined PDF report of all results
 
 # Input/output configuration
 scale_factor <- 1e5                # Scaling factor for coefficients
-results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/unweighted"
+results_path <- "results/collapseBatch_FALSE_groupBy_year_rcp_ssp_model_gcm_batch/analysis_scenarios/all_gamma_values/population_weighted"
 input_file <- file.path(results_path, "regional_polynomials.csv")
 input_data_csv <- "data/mortality_regression_full_mc.csv"  # Original data for prediction analysis
 
@@ -28,6 +28,10 @@ collapse_batch <- FALSE
 
 # Monte Carlo simulation parameters for prediction analysis
 n_draws <- 100                     # Number of Monte Carlo draws
+
+# Test mode
+test_mode <- TRUE
+test_iso3_list <- c("USA", "IND", "PAK", "BGD", "CHN")
 
 # ======================================================================
 # Setup Section - Libraries and Environment
@@ -142,6 +146,11 @@ generate_basic_coefficient_report <- function(results, dirs) {
   
   # Filter results based on the median gamma value
   results.mu <- results[results$gamma == median(results$gamma),]
+  
+  if (test_mode) {
+    results.mu$iso3 <- substring(results.mu$region, 1, 3)
+    results.mu <- results.mu[results.mu$iso3 %in% test_iso3_list, ]
+  }
   
   # Compute polynomial fits
   TT <- seq(0, 20, length.out = 100)
@@ -275,26 +284,35 @@ generate_basic_coefficient_report <- function(results, dirs) {
 
 # Prediction Analysis
 generate_prediction_report <- function(results, dirs, input_data_csv, required_columns,
-                                       gdp_baseline_start, gdp_baseline_end, collapse_batch, n_draws, scale_factor) {
+                                       gdp_baseline_start, gdp_baseline_end, collapse_batch, n_draws, scale_factor, test_mode, test_iso3_list) {
   cat("Generating prediction analysis...\n")
   
   # Get median gamma value
   gamma.mu <- median(results$gamma)
+  if (!("df" %in% ls(envir = .GlobalEnv)) || tolower(readline("Reload 'df' from disk? (y/n): ")) == "y") {
+    cat("Loading data from disk...\n")
+    # Load the original data
+    df <- load_and_process_data(
+      input_data_csv, 
+      required_columns, 
+      gdp_baseline_start = gdp_baseline_start, 
+      gdp_baseline_end = gdp_baseline_end,
+      collapse_batch_data = collapse_batch
+    )
+  } else {
+    cat("Using the existing 'df' in memory.\n")
+  }
   
-  # Load the original data
-  df <- load_and_process_data(
-    input_data_csv, 
-    required_columns, 
-    gdp_baseline_start = gdp_baseline_start, 
-    gdp_baseline_end = gdp_baseline_end,
-    collapse_batch_data = collapse_batch
-  )
   
   # Get the list of unique regions from results
   region_list <- unique(results$region)
   
   # Filter data to include only regions in results
-  df <- df[df$region %in% region_list, ]
+  if (test_mode) {
+    df <- df[df$region %in% test_iso3_list, ]
+  } else {
+    df <- df[df$region %in% region_list, ]
+  }
   
   # Calculate normed values
   df$mean.normed <- df$delta_mortality / (exp(df$lgdp_delta)^gamma.mu)
@@ -688,17 +706,23 @@ main <- function() {
   # Load results data
   results <- load_results(input_file, scale_factor)
   
+  # Filter by test countries if test_mode is enabled
+  if (test_mode) {
+    cat("Test mode active. Filtering results to test countries only.\n")
+    results$iso3 <- substring(results$region, 1, 3)
+    results <- results %>% filter(iso3 %in% test_iso3_list)
+  }
+  
   # Generate basic report if requested
-  if (generate_basic_report) {
+  if (do_generate_basic_report) {
     cat("=== Generating Basic Report ===\n")
     basic_results <- generate_basic_coefficient_report(results, dirs)
   }
   
   # Generate prediction report if requested
-  if (generate_prediction_report) {
+  if (do_generate_prediction_report) {
     cat("=== Generating Prediction Report ===\n")
 
-    
     # Generate the prediction report
     prediction_data <- generate_prediction_report(
       results, 
@@ -709,12 +733,14 @@ main <- function() {
       gdp_baseline_end, 
       collapse_batch, 
       n_draws,
-      scale_factor
+      scale_factor,
+      test_mode = test_mode, 
+      test_iso3_list = test_iso3_list
     )
   }
   
   # Generate combined PDF report if requested
-  if (generate_pdf_report) {
+  if (do_generate_pdf_report) {
     cat("=== Generating PDF Report ===\n")
     generate_pdf_report(dirs)
   }
@@ -724,3 +750,4 @@ main <- function() {
 
 # Run the main function
 main()
+
