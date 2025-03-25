@@ -19,7 +19,7 @@ The approach is currently setup for all-cause all-age mortality impacts.
 │       ├── data_processing.R # Data loading and preprocessing
 │       ├── resources.R     # Hardware resource detection and allocation
 │       ├── logging_setup.R # Logging configuration
-│       ├── regional_analysis.R # Regional-level analysis functions
+│       ├── regional_analysis.R # # Calibration of each region-specific emulator
 │       ├── scenario_analysis.R # Scenario analysis and calibration of income elasticity (gamma)
 │       └── results.R       # Functions for saving and visualizing results
 └── data/
