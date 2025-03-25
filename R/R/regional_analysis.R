@@ -50,8 +50,13 @@ run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_di
                               ifelse(i == total_regions, "✓", ""))
       p(progress_msg)
       
-      # Subset data for the current region
-      subdf_region <- subset(data, region == reg)
+      # # Subset data for the current region and drop 5% lowest absolute impacts
+      subdf_region <- data %>%
+        filter(region == reg) %>%
+        mutate(abs_impact = abs(delta_mortality)) %>%
+        filter(abs_impact >= quantile(abs_impact, 0.05, na.rm = TRUE)) %>%
+        select(-abs_impact)
+      
       
       # Loop over each gamma value
       for (gamma_val in gamma_values) {
