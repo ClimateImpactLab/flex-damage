@@ -112,7 +112,8 @@ The framework follows these steps:
 
 ### Global Model Estimation
 - Estimates overall relationship between mortality, temperature, and GDP.
-- Calculates gamma values for GDP normalization.
+- Calibrates the income elasticity parameter (gamma), which reflects adaptation capacity.
+- Gamma is used to normalize mortality impacts by removing income-driven adaptation effects.
 
 ### Regional Analysis
 - Processes data on a per-region basis.
