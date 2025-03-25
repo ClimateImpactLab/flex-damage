@@ -58,11 +58,11 @@ load_and_process_data <- function(csv_file_path, required_columns, gdp_baseline_
   gdp_reference <- df %>%
     filter(year >= gdp_baseline_start & year <= gdp_baseline_end) %>%
     group_by(region, ssp, rcp, model) %>%
-    summarize(avg_gdp_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
+    summarize(loggdppc_ref = mean(loggdppc, na.rm = TRUE), .groups = 'drop')
   
   df <- df %>%
     left_join(gdp_reference, by = c("region", "ssp", "rcp", "model")) %>%
-    mutate(lgdp_delta = loggdppc - avg_gdp_ref)
+    mutate(lgdp_delta = loggdppc - loggdppc_ref)
   
   # Create additional grouping variables.
   df$log_region <- paste0(sign(df$delta_mortality), '-', df$region)
