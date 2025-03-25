@@ -4,7 +4,9 @@
 
 ## Mortality Damages Framework
 
-This framework provides tools for analyzing climate data, focusing on mortality regression analysis and regional impact assessment. The framework processes climate-related datasets to evaluate temperature anomalies, mortality rates, and economic factors across different regions, climate models, and scenarios. 
+This framework fits statistical emulators to represent projected climate impacts. A distinct emulation function is calibrated for each region of the globe. Globally common income elasticities capture the benefits of income-driven adaptation. The approach uses OLS to estimate the common income elasticity, and then uses OLS again to fit emulation functions for each region given values of the income elasticity.
+
+The approach is currently setup for all-cause all-age mortality impacts.
 
 ## Project Structure
 
