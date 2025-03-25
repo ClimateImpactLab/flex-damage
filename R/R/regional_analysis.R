@@ -71,10 +71,6 @@ run_regional_analysis <- function(data, gamma_values, gamma, globaldf, output_di
         
         # Fit the regional regression
         mod <- lm(mean_normed ~ delta_temp + tas_preind2, data = subdf)
-        # Create a prediction dataframe (for diagnostics, if needed)
-        preddf <- data.frame(delta_temp = seq(0, 4.5, length.out = 100))
-        preddf$tas_preind2 <- preddf$delta_temp^2
-        preddf$mean_normed <- predict(mod, preddf)
         
         # Force convexity if necessary
         if (coef(mod)[3] < 0) {
