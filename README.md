@@ -69,9 +69,6 @@ The main script includes several configurable parameters:
 
 - **n_cores**: Number of CPU cores to use for parallel processing  
 
-- **gdp_baseline_START/END**: Year range for GDP baseline calculation  
-  - Used to normalize GDP across regions and time periods  
-
 - **test_mode**: Run in test mode with limited regions (`TRUE/FALSE`)  
   - When `TRUE`, only processes 10 regions (prioritizing USA and CHN)  
 
