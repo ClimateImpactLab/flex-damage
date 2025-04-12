@@ -1,0 +1,57 @@
+/* Map container */
+.map {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  /* Floating panel for selectors */
+  .selector-panel {
+    position: absolute;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    top: 10px;
+    left: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Label styles inside selector panel */
+  .selector-panel label {
+    color: #fff;
+  }
+  
+  /* Dropdown styles */
+  .selector-panel select {
+    background: #fff;
+    color: #000;
+    margin-left: 5px;
+  }
+  
+  /* Grouping selectors visually */
+  .selector-group {
+    margin-bottom: 10px;
+  }
+  
+  /* Basic button style */
+  button {
+    background: #0f0; /* Bright green */
+    border: none;
+    color: #000;
+    font-weight: bold;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  /* Hover effect for button */
+  button:hover {
+    background: #0c0;
+  }
+  
