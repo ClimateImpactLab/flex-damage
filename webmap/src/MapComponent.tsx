@@ -79,8 +79,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/light-v11',
-        center: [0, 0],
-        zoom: 1.5,
+        center: [-50, 0],
+        zoom: 2,
         projection: 'globe'
       });
       mapRef.current.addControl(new mapboxgl.NavigationControl());
