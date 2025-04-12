@@ -31,12 +31,22 @@ interface HoverInfo {
 
 type LayerMode = 'flex' | 'raw' | 'difference';
 
-const MapComponent: React.FC<{
+interface MapComponentProps {
   filters: any;
   csvData: CSVRow[];
   geoData?: any;
   onMaxAbsChange?: (maxAbs: number) => void;
-}> = ({ filters, csvData, geoData, onMaxAbsChange }) => {
+  // NEW PROP: when true, the map will show neutral colors.
+  isLoading?: boolean;
+}
+
+const MapComponent: React.FC<MapComponentProps> = ({
+  filters,
+  csvData,
+  geoData,
+  onMaxAbsChange,
+  isLoading = false
+}) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
@@ -216,30 +226,28 @@ const MapComponent: React.FC<{
         ];
       }
     } else if (layerMode === 'difference') {
-      // Si ambos valores (raw y flex) tienen el mismo signo, se usa una escala de verdes;
-      // de lo contrario, se usa una escala de rojo ladrillo.
       fillColor = [
         'case',
-        // Comprueba si "raw" y "flex" tienen el mismo signo: se comparan si ambos son menores a 0.
         ['==', ['<', ['get', 'raw'], 0], ['<', ['get', 'flex'], 0]],
-        // Si sí (mismo signo): escala de verdes
         [
           'interpolate',
           ['linear'],
           ['abs', ['get', 'diff']],
-          0, '#d0f0c0',   // light green
-          computedMaxAbsDiff, '#006400'  // dark green
+          0, '#d0f0c0',
+          computedMaxAbsDiff, '#006400'
         ],
-        // Si no (signos opuestos): escala de rojo ladrillo
         [
           'interpolate',
           ['linear'],
           ['abs', ['get', 'diff']],
-          0, '#f08080',   // light brick red
-          computedMaxAbsDiff, '#8b0000'  // dark brick red
+          0, '#f08080',
+          computedMaxAbsDiff, '#8b0000'
         ]
       ];
     }
+
+    // If the map is loading, override the fill color to a neutral shade.
+    const displayFillColor = isLoading ? '#e0e0e0' : fillColor;
 
     const loadGeoData = () => {
       if (geoData) return Promise.resolve(geoData);
@@ -257,10 +265,18 @@ const MapComponent: React.FC<{
           .then(data => {
             data.features.forEach((feature: any) => {
               const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-              feature.properties.flex = flexMap[isoCode] ?? null;
-              feature.properties.raw = rawMap[isoCode] ?? null;
-              feature.properties.diff = diffMap[isoCode] ?? null;
+              if (isLoading) {
+                // Forzar valores nulos para limpiar el mapa mientras carga
+                feature.properties.flex = null;
+                feature.properties.raw = null;
+                feature.properties.diff = null;
+              } else {
+                feature.properties.flex = flexMap[isoCode] ?? null;
+                feature.properties.raw = rawMap[isoCode] ?? null;
+                feature.properties.diff = diffMap[isoCode] ?? null;
+              }
             });
+            
             if (!map.getSource('countries')) {
               map.addSource('countries', { type: 'geojson', data });
             } else {
@@ -275,13 +291,13 @@ const MapComponent: React.FC<{
                 type: 'fill',
                 source: 'countries',
                 paint: {
-                  'fill-color': fillColor,
+                  'fill-color': displayFillColor,
                   'fill-opacity': 0.7,
                   'fill-outline-color': '#ccc'
                 }
               });
             } else {
-              map.setPaintProperty('choropleth', 'fill-color', fillColor);
+              map.setPaintProperty('choropleth', 'fill-color', displayFillColor);
             }
             cleanupHover = addHoverListeners(map);
           })
@@ -310,13 +326,13 @@ const MapComponent: React.FC<{
               type: 'fill',
               source: 'countries',
               paint: {
-                'fill-color': fillColor,
+                'fill-color': displayFillColor,
                 'fill-opacity': 0.7,
                 'fill-outline-color': '#ccc'
               }
             });
           } else {
-            map.setPaintProperty('choropleth', 'fill-color', fillColor);
+            map.setPaintProperty('choropleth', 'fill-color', displayFillColor);
           }
           cleanupHover = addHoverListeners(map);
         })
@@ -325,13 +341,21 @@ const MapComponent: React.FC<{
     return () => {
       cleanupHover();
     };
-  }, [csvData, filters, geoData, layerMode, onMaxAbsChange, removeExistingLayersAndSources]);
+  }, [
+    csvData,
+    filters,
+    geoData,
+    layerMode,
+    isLoading,
+    onMaxAbsChange,
+    removeExistingLayersAndSources
+  ]);
 
   return (
     <div className="map-container" style={{ position: 'relative', height: '100%' }}>
       {/* Renderizamos el componente toggle separado */}
       <LayerToggle layerMode={layerMode} onChange={setLayerMode} />
-      {/* El contenedor de la leyenda se posiciona con CSS (modificado para ubicarse en la parte superior izquierda debajo del toggle) */}
+      {/* La leyenda se posiciona con CSS */}
       <div className="legend-wrapper">
         <Legend
           maxAbs={maxAbs}
@@ -342,17 +366,14 @@ const MapComponent: React.FC<{
           layerMode={layerMode}
         />
       </div>
-      {/* El contenedor del mapa */}
       <div ref={mapContainerRef} className="map" style={{ height: '100%' }} />
       <DataTable
-      lowest={lowest}
-      highest={highest}
-      maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
-      sector={filters.sector}
-      layerMode={layerMode}
-    />
-
-
+        lowest={lowest}
+        highest={highest}
+        maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
+        sector={filters.sector}
+        layerMode={layerMode}
+      />
     </div>
   );
 };
