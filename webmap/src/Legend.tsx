@@ -20,7 +20,6 @@ const Legend: React.FC<LegendProps> = ({
   maxAbs,
   diffScale,
   hoverInfo,
-  sector,
   ttAnomaly,
   layerMode,
 }) => {

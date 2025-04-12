@@ -1,8 +1,4 @@
 // MapComponent.tsx
-// Este componente ahora soporta tres modos: "flex" (Flex Damage),
-// "raw" (Raw Total) y "difference" (Raw Total - Flex Damage).
-// Se muestra un panel toggle (ahora como componente LayerToggle) en la parte superior izquierda.
-// La leyenda se posiciona debajo del toggle.
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl, { Map, MapMouseEvent } from 'mapbox-gl';
 import Legend from './Legend';
@@ -36,8 +32,8 @@ interface MapComponentProps {
   csvData: CSVRow[];
   geoData?: any;
   onMaxAbsChange?: (maxAbs: number) => void;
-  // NEW PROP: when true, the map will show neutral colors.
   isLoading?: boolean;
+  animate?: boolean;
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -91,7 +87,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       mapRef.current.on('style.load', () => {
         const layersToHide = ['admin-1-boundary', 'admin-0-boundary-disputed', 'admin-0-boundary-bg'];
         layersToHide.forEach(layerId => {
-          if (mapRef.current && mapRef.current.getLayer(layerId)) {
+          if (mapRef.current?.getLayer(layerId)) {
             mapRef.current.setLayoutProperty(layerId, 'visibility', 'none');
           }
         });
@@ -112,25 +108,33 @@ const MapComponent: React.FC<MapComponentProps> = ({
       const iso = feature.properties?.ISO || feature.properties?.iso || '';
       setHoverInfo({ iso, value });
     };
+  
     const handleMouseLeave = () => {
       setHoverInfo(null);
     };
+  
+    // NUEVOS handlers para cursor
+    const handleMouseEnterCursor = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+  
+    const handleMouseLeaveCursor = () => {
+      map.getCanvas().style.cursor = '';
+    };
+  
     map.on('mousemove', 'choropleth', handleMouseMove);
     map.on('mouseleave', 'choropleth', handleMouseLeave);
-    // Cambiar el cursor a pointer al entrar y restaurarlo al salir.
-    map.on('mouseenter', 'choropleth', () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-    map.on('mouseleave', 'choropleth', () => {
-      map.getCanvas().style.cursor = '';
-    });
+    map.on('mouseenter', 'choropleth', handleMouseEnterCursor);
+    map.on('mouseleave', 'choropleth', handleMouseLeaveCursor);
+  
     return () => {
       map.off('mousemove', 'choropleth', handleMouseMove);
       map.off('mouseleave', 'choropleth', handleMouseLeave);
-      map.off('mouseenter', 'choropleth');
-      map.off('mouseleave', 'choropleth');
+      map.off('mouseenter', 'choropleth', handleMouseEnterCursor);
+      map.off('mouseleave', 'choropleth', handleMouseLeaveCursor);
     };
   };
+  
 
   useEffect(() => {
     const map = mapRef.current;
@@ -166,7 +170,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         let flexVal = d.flextotal ? parseFloat(d.flextotal) : NaN;
         let rawVal = d.rawtotal ? parseFloat(d.rawtotal) : NaN;
         if (!isNaN(flexVal) && !isNaN(rawVal) && iso) {
-          if (['combined', 'high risk', 'low risk'].includes(filters.sector.toLowerCase())) {
+          if (["combined", "high risk", "low risk"].includes(filters.sector.toLowerCase())) {
             flexVal = flexVal / 60;
             rawVal = rawVal / 60;
           }
@@ -246,15 +250,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
       ];
     }
 
-    // If the map is loading, override the fill color to a neutral shade.
     const displayFillColor = isLoading ? '#e0e0e0' : fillColor;
 
     const loadGeoData = () => {
       if (geoData) return Promise.resolve(geoData);
-      else {
-        const url = 'https://huggingface.co/datasets/c1587s/flex-damage-impacts/resolve/main/geometries/world_countries_simplified.geojson';
-        return fetch(url).then(res => res.json());
-      }
+      const url = 'https://huggingface.co/datasets/c1587s/flex-damage-impacts/resolve/main/geometries/world_countries_simplified.geojson';
+      return fetch(url).then(res => res.json());
     };
 
     removeExistingLayersAndSources();
@@ -265,18 +266,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
           .then(data => {
             data.features.forEach((feature: any) => {
               const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-              if (isLoading) {
-                // Forzar valores nulos para limpiar el mapa mientras carga
-                feature.properties.flex = null;
-                feature.properties.raw = null;
-                feature.properties.diff = null;
-              } else {
-                feature.properties.flex = flexMap[isoCode] ?? null;
-                feature.properties.raw = rawMap[isoCode] ?? null;
-                feature.properties.diff = diffMap[isoCode] ?? null;
-              }
+              feature.properties.flex = isLoading ? null : flexMap[isoCode] ?? null;
+              feature.properties.raw = isLoading ? null : rawMap[isoCode] ?? null;
+              feature.properties.diff = isLoading ? null : diffMap[isoCode] ?? null;
             });
-            
+
             if (!map.getSource('countries')) {
               map.addSource('countries', { type: 'geojson', data });
             } else {
@@ -308,9 +302,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
         .then(data => {
           data.features.forEach((feature: any) => {
             const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-            feature.properties.flex = flexMap[isoCode] ?? null;
-            feature.properties.raw = rawMap[isoCode] ?? null;
-            feature.properties.diff = diffMap[isoCode] ?? null;
+            feature.properties.flex = isLoading ? null : flexMap[isoCode] ?? null;
+            feature.properties.raw = isLoading ? null : rawMap[isoCode] ?? null;
+            feature.properties.diff = isLoading ? null : diffMap[isoCode] ?? null;
           });
           if (!map.getSource('countries')) {
             map.addSource('countries', { type: 'geojson', data });
@@ -353,9 +347,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   return (
     <div className="map-container" style={{ position: 'relative', height: '100%' }}>
-      {/* Renderizamos el componente toggle separado */}
       <LayerToggle layerMode={layerMode} onChange={setLayerMode} />
-      {/* La leyenda se posiciona con CSS */}
       <div className="legend-wrapper">
         <Legend
           maxAbs={maxAbs}
