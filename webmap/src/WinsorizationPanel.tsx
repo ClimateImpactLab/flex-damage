@@ -124,6 +124,11 @@ const WinsorizationPanel: React.FC<WinsorizationPanelProps> = ({ settings, onCha
           </div>
         </div>
       )}
+      
+      <div className="winsorization-note">
+        Note: These techniques are only applied to make the map more comparable when using color scales.<br/>
+        Original values are presented in the legend when hovering over countries.
+      </div>
     </div>
   );
 };

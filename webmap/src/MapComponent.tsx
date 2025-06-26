@@ -54,7 +54,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   onMaxAbsChange,
   isLoading = false
 }) => {
-  const isMortality = filters.sector?.toLowerCase() === 'mortality';
+  // const isMortality = filters.sector?.toLowerCase() === 'mortality';
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
@@ -106,6 +106,49 @@ const MapComponent: React.FC<MapComponentProps> = ({
         projection: projection
       });
       mapRef.current.addControl(new mapboxgl.NavigationControl());
+      
+      // Add custom recenter button
+      const recenterButton = document.createElement('button');
+      recenterButton.className = 'mapboxgl-ctrl-icon mapboxgl-ctrl-recenter';
+      recenterButton.innerHTML = '🌍';
+      recenterButton.title = 'Recenter map';
+      recenterButton.style.cssText = `
+        position: absolute;
+        bottom: 140px;
+        right: 10px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-size: 14px;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        transition: background-color 0.2s ease;
+      `;
+      
+      recenterButton.addEventListener('mouseenter', () => {
+        recenterButton.style.background = 'rgba(0, 0, 0, 0.85)';
+      });
+      
+      recenterButton.addEventListener('mouseleave', () => {
+        recenterButton.style.background = 'rgba(0, 0, 0, 0.7)';
+      });
+      
+      recenterButton.addEventListener('click', () => {
+        if (mapRef.current) {
+          mapRef.current.flyTo({
+            center: [0, 0],
+            zoom: 1.8,
+            pitch: 0,
+            bearing: 0,
+            duration: 1000
+          });
+        }
+      });
+      
+      mapContainerRef.current?.appendChild(recenterButton);
       mapRef.current.on('style.load', () => {
         const layersToHide = ['admin-1-boundary', 'admin-0-boundary-disputed', 'admin-0-boundary-bg'];
         layersToHide.forEach(layerId => {
@@ -113,6 +156,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
             mapRef.current.setLayoutProperty(layerId, 'visibility', 'none');
           }
         });
+        
+        // Change background and water colors to white
+        if (mapRef.current?.getLayer('background')) {
+          mapRef.current.setPaintProperty('background', 'background-color', '#ffffff');
+        }
+        if (mapRef.current?.getLayer('water')) {
+          mapRef.current.setPaintProperty('water', 'fill-color', '#ffffff');
+        }
+        if (mapRef.current?.getLayer('waterway')) {
+          mapRef.current.setPaintProperty('waterway', 'line-color', '#ffffff');
+        }
       });
     }
   }, [projection]);

@@ -93,4 +93,16 @@
   outline: none;
   border-color: rgba(0, 174, 255, 0.7);
   background: rgba(255, 255, 255, 0.15);
+}
+
+.winsorization-note {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 8px;
+  color: #ccc;
+  line-height: 1.3;
+  font-style: italic;
+  max-width: 200px;
+  word-wrap: break-word;
 } 

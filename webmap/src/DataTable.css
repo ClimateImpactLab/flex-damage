@@ -3,11 +3,11 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.6);
     color: rgb(47, 48, 47);
     padding: 10px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 10px;
     max-width: 300px;
   }
   .table-header {
@@ -42,7 +42,7 @@
   }
 
   .arrow {
-    font-size: 10px;
+    font-size: 8px;
     transition: transform 0.2s ease;
     display: inline-block;
   }
@@ -57,7 +57,7 @@
   
   .table-note {
     text-align: center;
-    font-size: 9px;
+    font-size: 8px;
     margin-bottom: 8px;
     color: rgb(140, 140, 140);
     font-style: italic;

@@ -93,7 +93,7 @@ const DataTable: React.FC<DataTableProps> = ({
   maxAbs, 
   sector, 
   layerMode,
-  winsorizationSettings,
+  winsorizationSettings: _winsorizationSettings,
   finalFlexMap,
   finalRawMap,
   finalDiffMap
@@ -115,11 +115,13 @@ const DataTable: React.FC<DataTableProps> = ({
     const allIsoCodes = [...lowest, ...highest].map(([iso]) => iso);
     if (allIsoCodes.length > 0) {
       setCountryNamesLoaded(false);
+      console.log('Preloading country names for sector:', sector, 'ISOs:', allIsoCodes);
       preloadCountryNames(allIsoCodes).then(() => {
+        console.log('Country names loaded for sector:', sector);
         setCountryNamesLoaded(true);
       });
     }
-  }, [lowest, highest]);
+  }, [lowest, highest, sector]);
 
   const getColorForCountry = (iso: string, originalValue: number): string => {
     // To match map colors, we need to use the same processed value that the map uses

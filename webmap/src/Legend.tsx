@@ -41,7 +41,7 @@ const Legend: React.FC<LegendProps> = ({
   };
 
   // Helper function to determine decimal places for display
-  const getDecimalPlaces = (value: number, sector: string): number => {
+  const getDecimalPlaces = (_value: number, sector: string): number => {
     const sectorLower = sector.toLowerCase();
     if (sectorLower.includes('labor')) {
       return 6; // Up to 6 decimals for labor sector
