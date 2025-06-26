@@ -67,7 +67,7 @@ const SelectorPanel: React.FC<SelectorPanelProps> = ({ filters, onSubmit }) => {
       <div className="selector-group">
         <label>Sector:</label>
         <select name="sector" value={localFilters.sector} onChange={handleChange}>
-          {["Mortality", "Labor (Combined)", "Labor (High Risk)", "Labor (Low Risk)", "Agriculture"].map(opt => (
+          {["Mortality", "Labor (Combined)", "Labor (High Risk)", "Labor (Low Risk)", "Agriculture", "Energy"].map(opt => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>

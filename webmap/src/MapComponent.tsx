@@ -163,9 +163,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
       return;
     }
 
-    console.log("CSV fields:", Object.keys(csvData[0] || {}));
-    console.log("First row:", csvData[0]);
-
     const matchingRow = csvData.find((d: CSVRow) => {
       const matchesModel = d.model?.replace(/"/g, '').trim().toLowerCase() === filters.model.toLowerCase();
       const matchesSSP = d.ssp?.replace(/"/g, '').trim().toLowerCase() === filters.ssp.toLowerCase();
@@ -181,16 +178,29 @@ const MapComponent: React.FC<MapComponentProps> = ({
     const filterPeriod = filters.period.toLowerCase();
     const filterSSP = filters.ssp.toLowerCase();
     const filterRCP = filters.rcp.toLowerCase();
-    const filterModel = filters.model.toLowerCase();
+    
+    // Map model names for energy sector
+    const getModelName = (model: string, sector: string): string => {
+      if (sector.toLowerCase() === 'energy') {
+        if (model.toLowerCase() === 'high') return 'OECD Env-Growth';
+        if (model.toLowerCase() === 'low') return 'IIASA GDP';
+      }
+      return model.toLowerCase();
+    };
+    
+    const filterModel = getModelName(filters.model, filters.sector);
+
+
 
     let flexMap: { [iso: string]: number } = {};
     let rawMap: { [iso: string]: number } = {};
 
-    csvData.forEach((d: CSVRow) => {
+        csvData.forEach((d: CSVRow) => {
       const cleanedRowPeriod = d.period ? d.period.replace(/"/g, '').trim().toLowerCase() : '';
       const cleanedRowSSP = d.ssp ? d.ssp.replace(/"/g, '').trim().toLowerCase() : '';
       const cleanedRowRCP = d.rcp ? d.rcp.replace(/"/g, '').trim().toLowerCase() : '';
-      const cleanedRowModel = d.model ? d.model.replace(/"/g, '').trim().toLowerCase() : '';
+      const cleanedRowModel = d.model ? d.model.replace(/"/g, '').trim() : '';
+      
       if (
         cleanedRowPeriod === filterPeriod &&
         cleanedRowSSP === filterSSP &&
@@ -200,7 +210,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
         const iso = d.iso ? d.iso.replace(/"/g, '').trim() : '';
         let flexVal = d.flextotal ? parseFloat(d.flextotal) : NaN;
         let rawVal = d.rawtotal ? parseFloat(d.rawtotal) : NaN;
-        if (!isNaN(flexVal) && !isNaN(rawVal) && iso) {
+        
+        if (!isNaN(flexVal) && !isNaN(rawVal) && iso && isFinite(flexVal) && isFinite(rawVal)) {
           if (["combined", "high risk", "low risk"].includes(filters.sector.toLowerCase())) {
             flexVal = flexVal / 60;
             rawVal = rawVal / 60;

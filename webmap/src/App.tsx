@@ -36,6 +36,7 @@ const App: React.FC = () => {
         const lower = sector.toLowerCase();
         if (lower === 'mortality') return 'mortality';
         if (lower === 'agriculture') return 'agriculture';
+        if (lower === 'energy') return 'energy';
         if (sector === 'Labor (Combined)') return 'labor_combined';
         if (sector === 'Labor (High Risk)') return 'labor_high';
         if (sector === 'Labor (Low Risk)') return 'labor_low';
