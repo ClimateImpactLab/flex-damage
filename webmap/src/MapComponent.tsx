@@ -6,7 +6,7 @@ import DataTable from './DataTable';
 import LayerToggle from './LayerToggle';
 import ProjectionSelector, { ProjectionType } from './ProjectionSelector';
 import WinsorizationPanel, { WinsorizationSettings } from './WinsorizationPanel';
-import { winsorizeMap } from './utils/winsorization';
+import { winsorizeMap, calculatePercentile } from './utils/winsorization';
 import './Map.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -357,14 +357,20 @@ const MapComponent: React.FC<MapComponentProps> = ({
       : rawMap;
 
     // Calculate dynamic max based on actual data range
+    // When winsorization is enabled, use the winsorization bounds for color scaling
     let currentValues: number[] = [];
+    let originalValues: number[] = [];
+    
     if (layerMode === 'flex') {
-      currentValues = Object.values(winsorizationSettings.enabled ? currentFinalFlexMap : flexMap);
+      currentValues = Object.values(currentFinalFlexMap);
+      originalValues = Object.values(flexMap);
     } else if (layerMode === 'raw') {
-      currentValues = Object.values(winsorizationSettings.enabled ? currentFinalRawMap : rawMap);
+      currentValues = Object.values(currentFinalRawMap);
+      originalValues = Object.values(rawMap);
     } else {
       // For difference mode, always use non-winsorized values
       currentValues = Object.values(currentFinalFlexMap).concat(Object.values(currentFinalRawMap));
+      originalValues = currentValues;
     }
     
     let displayMaxAbs: number;
@@ -386,8 +392,22 @@ const MapComponent: React.FC<MapComponentProps> = ({
       
       // For tiny values, don't force a minimum of 1
       displayMaxAbs = Math.max(displayMaxAbs, 0.001);
+    } else if (winsorizationSettings.enabled && layerMode !== 'difference') {
+      // When winsorization is enabled, use the actual bounds as calculated by the winsorization
+      // This ensures proper asymmetric scaling when needed
+      const lowerBound = calculatePercentile(originalValues, winsorizationSettings.lowerPercentile);
+      const upperBound = calculatePercentile(originalValues, winsorizationSettings.upperPercentile);
+      
+      // For asymmetric data, we need to use the actual bounds, not force symmetry
+      const actualMin = Math.min(...currentValues);
+      const actualMax = Math.max(...currentValues);
+      
+      // Use the actual range of winsorized data for color scaling
+      displayMaxAbs = Math.max(Math.abs(actualMin), Math.abs(actualMax));
+      
+
     } else {
-      // Regular max absolute value approach - use actual data range without rounding
+      // Regular approach: use actual data range
       displayMaxAbs = Math.max(...currentValues.map(v => Math.abs(v))) || 1;
     }
     
@@ -443,31 +463,65 @@ const MapComponent: React.FC<MapComponentProps> = ({
     let fillColor: any;
     if (layerMode === 'flex' || layerMode === 'raw') {
       const prop = layerMode;
-      const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
+      const baseColors = ['#053061', '#2166ac', '#92c5de', '#f7f7f7', '#fddbc7', '#ef8a62', '#67001f'];
       
       const isLaborOrEnergy = filters.sector?.toLowerCase().includes('labor') || filters.sector?.toLowerCase() === 'energy';
       const colorArray = isLaborOrEnergy ? [...baseColors].reverse() : baseColors;
       
       const effectiveMax = displayMaxAbs;
       
-      fillColor = [
-        'case',
-        ['!=', ['get', prop], null],
-        [
-          'step',
-          ['get', prop],
-          colorArray[0], // more negative
-          -effectiveMax * 0.8, colorArray[1],
-          -effectiveMax * 0.5, colorArray[2],
-          -effectiveMax * 0.1, colorArray[3], // close to 0
-          effectiveMax * 0.1, colorArray[4],  // close to 0
-          effectiveMax * 0.5, colorArray[5],
-          effectiveMax * 0.8, colorArray[6]   // more positove
-        ],
-        '#e0e0e0'  // Gray color for countries with no data
-      ];
-    }
+      // When winsorization is enabled, ensure extreme values get extreme colors
+      if (winsorizationSettings.enabled) {
+        // For winsorized data, create asymmetric color scale based on actual data range
+        const actualMin = Math.min(...currentValues);
+        const actualMax = Math.max(...currentValues);
+        
+        // Create asymmetric stops that ensure both extremes get the most intense colors
+        const asymmetricStops = colorArray.map((c, i) => {
+          const factor = i / (colorArray.length - 1); // 0 to 1
+          const value = actualMin + factor * (actualMax - actualMin);
+          return [value, c];
+        }).flat();
+        
 
+        
+        fillColor = [
+          'case',
+          ['!=', ['get', prop], null],
+          [
+            'interpolate',
+            ['linear'],
+            ['get', prop],
+            ...asymmetricStops
+          ],
+          '#e0e0e0'
+        ];
+      } else {
+        // Apply square root transformation for better contrast when not winsorized
+        fillColor = [
+          'case',
+          ['!=', ['get', prop], null],
+          [
+            'interpolate',
+            ['exponential', 2], // Usar interpolación exponencial en lugar de lineal
+            [
+              'case',
+              ['<', ['get', prop], 0],
+              ['*', -1, ['sqrt', ['abs', ['get', prop]]]], // Raíz cuadrada para valores negativos
+              ['sqrt', ['get', prop]] // Raíz cuadrada para valores positivos
+            ],
+            -Math.sqrt(effectiveMax), colorArray[0],
+            -Math.sqrt(effectiveMax) * 0.5, colorArray[1],
+            -Math.sqrt(effectiveMax) * 0.2, colorArray[2],
+            0, colorArray[3],
+            Math.sqrt(effectiveMax) * 0.2, colorArray[4],
+            Math.sqrt(effectiveMax) * 0.5, colorArray[5],
+            Math.sqrt(effectiveMax), colorArray[6]
+          ],
+          '#e0e0e0'
+        ];
+      }
+    }
      else if (layerMode === 'difference') {
       fillColor = [
         'case',
@@ -602,6 +656,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         sector={filters.sector}
         ttAnomaly={ttAnomaly}
         layerMode={layerMode}
+        winsorizationEnabled={winsorizationSettings.enabled}
       />
 
       </div>

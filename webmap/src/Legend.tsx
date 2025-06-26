@@ -15,6 +15,7 @@ interface LegendProps {
   sector: string;
   ttAnomaly: number | null;
   layerMode: 'flex' | 'raw' | 'difference';
+  winsorizationEnabled?: boolean;
 }
 
 const Legend: React.FC<LegendProps> = ({
@@ -24,6 +25,7 @@ const Legend: React.FC<LegendProps> = ({
   sector,
   ttAnomaly,
   layerMode,
+  winsorizationEnabled = false,
 }) => {
   const [countryName, setCountryName] = useState<string>('');
 
@@ -113,7 +115,7 @@ const Legend: React.FC<LegendProps> = ({
   }
 
   // Use the same color palette as the map, adjusted for sector
-  const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
+  const baseColors = ['#053061', '#2166ac', '#92c5de', '#f7f7f7', '#fddbc7', '#ef8a62', '#67001f'];
   // Color mapping based on sector:
   // baseColors = ['#2c7bb6' (blue), ..., '#d7191c' (red)]
   // - Mortality: negative = blue, positive = red => use baseColors
