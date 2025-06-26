@@ -4,9 +4,18 @@ import mapboxgl, { Map, MapMouseEvent } from 'mapbox-gl';
 import Legend from './Legend';
 import DataTable from './DataTable';
 import LayerToggle from './LayerToggle';
+import ProjectionSelector, { ProjectionType } from './ProjectionSelector';
 import './Map.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+// builds [value, color] stops evenly spaced from –max to +max
+const makeStops = (cols: string[], max: number) =>
+  cols
+    .map((c, i) => {
+      const v = -max + (2 * max * i) / (cols.length - 1);
+      return [v, c];
+    })
+    .flat();
 
 export interface CSVRow {
   period?: string;
@@ -43,10 +52,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
   onMaxAbsChange,
   isLoading = false
 }) => {
+  const isMortality = filters.sector?.toLowerCase() === 'mortality';
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
   const [layerMode, setLayerMode] = useState<LayerMode>('flex');
+  const [projection, setProjection] = useState<ProjectionType>('naturalEarth');
   const [maxAbs, setMaxAbs] = useState<number>(1);
   const [diffScale, setDiffScale] = useState<number>(1);
   const [lowest, setLowest] = useState<[string, number][]>([]);
@@ -79,9 +90,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/light-v11',
-        center: [-50, 0],
-        zoom: 2,
-        projection: 'globe'
+        center: [0, 0],
+        zoom: 1.8,
+        projection: projection
       });
       mapRef.current.addControl(new mapboxgl.NavigationControl());
       mapRef.current.on('style.load', () => {
@@ -92,6 +103,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
           }
         });
       });
+    }
+  }, [projection]);
+
+  // Handle projection changes - reload data when projection changes
+  const handleProjectionChange = useCallback((newProjection: ProjectionType) => {
+    setProjection(newProjection);
+    if (mapRef.current) {
+      mapRef.current.setProjection(newProjection);
     }
   }, []);
 
@@ -144,8 +163,20 @@ const MapComponent: React.FC<MapComponentProps> = ({
       return;
     }
 
-    const anomalyVal = csvData[0].tt ? parseFloat(csvData[0].tt) : null;
-    setTtAnomaly(anomalyVal);
+    console.log("CSV fields:", Object.keys(csvData[0] || {}));
+    console.log("First row:", csvData[0]);
+
+    const matchingRow = csvData.find((d: CSVRow) => {
+      const matchesModel = d.model?.replace(/"/g, '').trim().toLowerCase() === filters.model.toLowerCase();
+      const matchesSSP = d.ssp?.replace(/"/g, '').trim().toLowerCase() === filters.ssp.toLowerCase();
+      const matchesRCP = d.rcp?.replace(/"/g, '').trim().toLowerCase() === filters.rcp.toLowerCase();
+      const matchesPeriod = d.period?.replace(/"/g, '').trim().toLowerCase() === filters.period.toLowerCase();
+    
+      return matchesModel && matchesSSP && matchesRCP && matchesPeriod;
+    });
+    
+    const anomalyVal = matchingRow?.tt ? parseFloat(matchingRow.tt) : null;
+    setTtAnomaly(anomalyVal);    
 
     const filterPeriod = filters.period.toLowerCase();
     const filterSSP = filters.ssp.toLowerCase();
@@ -185,6 +216,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
     setMaxAbs(computedMaxAbs);
     if (onMaxAbsChange) onMaxAbsChange(computedMaxAbs);
 
+    const fixedMaxAbsMortality = 300;
+    const displayMaxAbs = isMortality ? fixedMaxAbsMortality : computedMaxAbs;
+
     let diffMap: { [iso: string]: number } = {};
     for (const iso in flexMap) {
       if (flexMap.hasOwnProperty(iso) && rawMap[iso] !== undefined) {
@@ -206,30 +240,23 @@ const MapComponent: React.FC<MapComponentProps> = ({
     let fillColor: any;
     if (layerMode === 'flex' || layerMode === 'raw') {
       const prop = layerMode;
-      if (filters.sector.toLowerCase() === 'mortality') {
-        fillColor = [
-          'interpolate',
-          ['linear'],
-          ['coalesce', ['get', prop], 0],
-          -computedMaxAbs, '#00AEFF',
-          -computedMaxAbs / 2, '#00FFEA',
-          0, '#FFFFFF',
-          computedMaxAbs / 2, '#FF8C00',
-          computedMaxAbs, '#FF073A'
-        ];
-      } else {
-        fillColor = [
-          'interpolate',
-          ['linear'],
-          ['coalesce', ['get', prop], 0],
-          -computedMaxAbs, '#FF073A',
-          -computedMaxAbs / 2, '#FF8C00',
-          0, '#FFFFFF',
-          computedMaxAbs / 2, '#00FFEA',
-          computedMaxAbs, '#00AEFF'
-        ];
-      }
-    } else if (layerMode === 'difference') {
+      // choose your five anchors
+      const anchorCols = isMortality
+        ? ['#00AEFF', '#00FFEA', '#FFFFFF', '#FF8C00', '#FF073A']
+        : ['#FF073A', '#FF8C00', '#FFFFFF', '#00FFEA', '#00AEFF'];
+      // generate smooth stops from –displayMaxAbs to +displayMaxAbs
+      const effectiveMax = displayMaxAbs * 0.5;  // 50% of real max
+      const stops       = makeStops(anchorCols, effectiveMax);
+      fillColor = [
+        'interpolate',
+        ['linear'],
+        ['coalesce', ['get', prop], 0],
+        ...stops
+      ];
+      
+    }
+
+     else if (layerMode === 'difference') {
       fillColor = [
         'case',
         ['==', ['<', ['get', 'raw'], 0], ['<', ['get', 'flex'], 0]],
@@ -340,6 +367,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     filters,
     geoData,
     layerMode,
+    projection,
     isLoading,
     onMaxAbsChange,
     removeExistingLayersAndSources
@@ -348,21 +376,26 @@ const MapComponent: React.FC<MapComponentProps> = ({
   return (
     <div className="map-container" style={{ position: 'relative', height: '100%' }}>
       <LayerToggle layerMode={layerMode} onChange={setLayerMode} />
+      <ProjectionSelector 
+        selectedProjection={projection} 
+        onChange={handleProjectionChange} 
+      />
       <div className="legend-wrapper">
-        <Legend
-          maxAbs={maxAbs}
-          diffScale={diffScale}
-          hoverInfo={hoverInfo}
-          sector={filters.sector}
-          ttAnomaly={ttAnomaly}
-          layerMode={layerMode}
-        />
+      <Legend
+        maxAbs={layerMode === 'difference' ? diffScale : (isMortality ? 300 : maxAbs)}
+        diffScale={diffScale}
+        hoverInfo={hoverInfo}
+        sector={filters.sector}
+        ttAnomaly={ttAnomaly}
+        layerMode={layerMode}
+      />
+
       </div>
       <div ref={mapContainerRef} className="map" style={{ height: '100%' }} />
       <DataTable
         lowest={lowest}
         highest={highest}
-        maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
+        maxAbs={layerMode === 'difference' ? diffScale : (isMortality ? 300 : maxAbs)}
         sector={filters.sector}
         layerMode={layerMode}
       />

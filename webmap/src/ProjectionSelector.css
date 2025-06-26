@@ -1,0 +1,53 @@
+/* ProjectionSelector.css */
+.projection-selector-container {
+  position: absolute;
+  bottom: 30px;
+  right: 10px;
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.projection-selector-title {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.projection-selector-options {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.projection-selector-option {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+.projection-selector-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.projection-selector-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.projection-selector-label {
+  cursor: pointer;
+  font-size: 11px;
+} 
