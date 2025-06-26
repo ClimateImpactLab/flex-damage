@@ -1,5 +1,6 @@
 // DataTable.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { preloadCountryNames, getCachedCountryName } from './utils/countryNames';
 import './DataTable.css';
 
 interface DataTableProps {
@@ -98,6 +99,27 @@ const DataTable: React.FC<DataTableProps> = ({
   finalDiffMap
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [countryNamesLoaded, setCountryNamesLoaded] = useState(false);
+
+  // Helper function to determine decimal places for display
+  const getDecimalPlaces = (sector: string): number => {
+    const sectorLower = sector.toLowerCase();
+    if (sectorLower.includes('labor')) {
+      return 6; // Up to 6 decimals for labor sector
+    }
+    return 2; // Default 2 decimals for other sectors
+  };
+
+  // Preload country names when the data changes
+  useEffect(() => {
+    const allIsoCodes = [...lowest, ...highest].map(([iso]) => iso);
+    if (allIsoCodes.length > 0) {
+      setCountryNamesLoaded(false);
+      preloadCountryNames(allIsoCodes).then(() => {
+        setCountryNamesLoaded(true);
+      });
+    }
+  }, [lowest, highest]);
 
   const getColorForCountry = (iso: string, originalValue: number): string => {
     // To match map colors, we need to use the same processed value that the map uses
@@ -133,8 +155,8 @@ const DataTable: React.FC<DataTableProps> = ({
                   <div className="table-list">
             {lowest.map(([iso, value]) => (
               <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
-                <span className="iso">{iso}</span>
-                <span className="val">{value.toFixed(2)}</span>
+                <span className="iso">{countryNamesLoaded ? getCachedCountryName(iso) : iso}</span>
+                <span className="val">{value.toFixed(getDecimalPlaces(sector))}</span>
               </div>
             ))}
           </div>
@@ -144,8 +166,8 @@ const DataTable: React.FC<DataTableProps> = ({
           <div className="table-list">
             {highest.map(([iso, value]) => (
               <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
-                <span className="iso">{iso}</span>
-                <span className="val">{value.toFixed(2)}</span>
+                <span className="iso">{countryNamesLoaded ? getCachedCountryName(iso) : iso}</span>
+                <span className="val">{value.toFixed(getDecimalPlaces(sector))}</span>
               </div>
             ))}
           </div>

@@ -302,6 +302,24 @@ const MapComponent: React.FC<MapComponentProps> = ({
       displayMaxAbs = roundToNiceNumber(computedMaxAbs);
     }
     
+    // Special handling for labor sectors with tiny values for better color distribution
+    const isLaborSector = filters.sector?.toLowerCase().includes('labor');
+    if (isLaborSector && !winsorizationSettings.topCoding) {
+      // For labor sectors, use percentile-based scaling for better color distribution
+      const sortedAbsValues = currentValues.map(v => Math.abs(v)).sort((a, b) => a - b);
+      if (sortedAbsValues.length > 0) {
+        // Use 90th percentile instead of max for better color distribution
+        const percentile90Index = Math.floor(sortedAbsValues.length * 0.9);
+        const percentile90 = sortedAbsValues[percentile90Index];
+        
+        // Use the smaller of percentile90 and the current displayMaxAbs
+        // This helps show variation in the majority of data while not being dominated by extreme outliers
+        if (percentile90 > 0 && percentile90 < displayMaxAbs) {
+          displayMaxAbs = percentile90;
+        }
+      }
+    }
+    
     setMaxAbs(displayMaxAbs);
     if (onMaxAbsChange) onMaxAbsChange(displayMaxAbs);
 
