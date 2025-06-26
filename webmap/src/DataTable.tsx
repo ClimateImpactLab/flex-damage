@@ -253,7 +253,7 @@ const DataTable: React.FC<DataTableProps> = ({
       </div>
       {isExpanded && (
         <>
-          <div className="table-note">Original values (not winsorized)</div>
+          <div className="table-note">Original values (not winsorized / not top-coded)</div>
           <div className="table-section">
         <div className="section-title">Lowest</div>
                   <div className="table-list">

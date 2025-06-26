@@ -1,0 +1,103 @@
+/* SelectorPanel.css */
+.selector-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 130px;
+  max-width: 200px;
+}
+
+.selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.selector-group:last-of-type {
+  margin-bottom: 14px;
+}
+
+.selector-group label {
+  font-weight: bold;
+  color: #fff;
+  font-size: 10px;
+}
+
+.selector-group select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 5px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.selector-group select:focus {
+  outline: none;
+  border-color: rgba(0, 174, 255, 0.7);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.selector-group select:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.selector-group select option {
+  background: #333;
+  color: #fff;
+}
+
+.selector-group select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selector-submit-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selector-submit-btn {
+  background: rgba(0, 174, 255, 0.7);
+  border: 1px solid rgba(0, 174, 255, 0.9);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.selector-submit-btn:hover:not(:disabled) {
+  background: rgba(0, 174, 255, 0.9);
+}
+
+.selector-submit-btn:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.selector-loading {
+  display: flex;
+  align-items: center;
+}
+
+.selector-loading-text {
+  fontSize: '9px';
+  color: '#ccc';
+  font-style: italic;
+} 
