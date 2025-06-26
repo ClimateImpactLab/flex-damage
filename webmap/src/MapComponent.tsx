@@ -75,10 +75,29 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [finalFlexMap, setFinalFlexMap] = useState<{ [iso: string]: number }>({});
   const [finalRawMap, setFinalRawMap] = useState<{ [iso: string]: number }>({});
   const [finalDiffMap, setFinalDiffMap] = useState<{ [iso: string]: number }>({});
+  const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
 
   const removeExistingLayersAndSources = useCallback(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
+    
+    // Remove highlight layers
+    if (map.getLayer('country-highlight-border')) {
+      try {
+        map.removeLayer('country-highlight-border');
+      } catch (e) {
+        console.error('Error removing layer "country-highlight-border":', e);
+      }
+    }
+    
+    if (map.getLayer('country-highlight-fill')) {
+      try {
+        map.removeLayer('country-highlight-fill');
+      } catch (e) {
+        console.error('Error removing layer "country-highlight-fill":', e);
+      }
+    }
+    
     if (map.getLayer('choropleth')) {
       try {
         map.removeLayer('choropleth');
@@ -86,6 +105,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         console.error('Error removing layer "choropleth":', e);
       }
     }
+    
     if (map.getSource('countries')) {
       try {
         map.removeSource('countries');
@@ -188,6 +208,33 @@ const MapComponent: React.FC<MapComponentProps> = ({
     setProjection(newProjection);
     if (mapRef.current) {
       mapRef.current.setProjection(newProjection);
+    }
+  }, []);
+
+  // Handle country hover from table
+  const handleCountryHover = useCallback((iso: string | null) => {
+    console.log('handleCountryHover called with:', iso);
+    setHighlightedCountry(iso);
+    
+    if (mapRef.current) {
+      console.log('Map ref exists, border layer available:', {
+        borderLayer: !!mapRef.current.getLayer('country-highlight-border')
+      });
+      
+      // Update border highlight only (no fill)
+      if (mapRef.current.getLayer('country-highlight-border')) {
+        console.log('Updating border highlight for:', iso);
+        if (iso) {
+          mapRef.current.setFilter('country-highlight-border', ['==', ['get', 'ISO'], iso]);
+          mapRef.current.setPaintProperty('country-highlight-border', 'line-opacity', 1);
+        } else {
+          mapRef.current.setFilter('country-highlight-border', ['==', ['get', 'ISO'], '']);
+        }
+      } else {
+        console.log('country-highlight-border layer not found');
+      }
+    } else {
+      console.log('Map ref is null');
     }
   }, []);
 
@@ -480,49 +527,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
     removeExistingLayersAndSources();
     let cleanupHover = () => {};
-    if (!map.isStyleLoaded()) {
-      map.once('style.load', () => {
-        loadGeoData()
-                  .then(data => {
-          data.features.forEach((feature: any) => {
-            const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-            // Set processed values for visualization
-            feature.properties.flex = isLoading ? null : currentFinalFlexMap[isoCode] ?? null;
-            feature.properties.raw = isLoading ? null : currentFinalRawMap[isoCode] ?? null;
-            feature.properties.diff = isLoading ? null : currentFinalDiffMap[isoCode] ?? null;
-            // Set original values for hover display
-            feature.properties.originalFlex = isLoading ? null : flexMap[isoCode] ?? null;
-            feature.properties.originalRaw = isLoading ? null : rawMap[isoCode] ?? null;
-            feature.properties.originalDiff = isLoading ? null : diffMap[isoCode] ?? null;
-          });
-
-            if (!map.getSource('countries')) {
-              map.addSource('countries', { type: 'geojson', data });
-            } else {
-              const source = map.getSource('countries');
-              if (source && 'setData' in source) {
-                (source as any).setData(data);
-              }
-            }
-            if (!map.getLayer('choropleth')) {
-              map.addLayer({
-                id: 'choropleth',
-                type: 'fill',
-                source: 'countries',
-                paint: {
-                  'fill-color': displayFillColor,
-                  'fill-opacity': 0.7,
-                  'fill-outline-color': '#ccc'
-                }
-              });
-            } else {
-              map.setPaintProperty('choropleth', 'fill-color', displayFillColor);
-            }
-            cleanupHover = addHoverListeners(map);
-          })
-          .catch(error => console.error('Error processing GeoJSON:', error));
-      });
-    } else {
+    
+    const setupMapLayers = () => {
       loadGeoData()
         .then(data => {
           data.features.forEach((feature: any) => {
@@ -536,6 +542,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
             feature.properties.originalRaw = isLoading ? null : rawMap[isoCode] ?? null;
             feature.properties.originalDiff = isLoading ? null : diffMap[isoCode] ?? null;
           });
+
           if (!map.getSource('countries')) {
             map.addSource('countries', { type: 'geojson', data });
           } else {
@@ -544,6 +551,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               (source as any).setData(data);
             }
           }
+          
           if (!map.getLayer('choropleth')) {
             map.addLayer({
               id: 'choropleth',
@@ -558,9 +566,33 @@ const MapComponent: React.FC<MapComponentProps> = ({
           } else {
             map.setPaintProperty('choropleth', 'fill-color', displayFillColor);
           }
+          
+          // Always try to create highlight layers if they don't exist
+          if (!map.getLayer('country-highlight-border')) {
+            console.log('Creating country-highlight-border layer');
+            map.addLayer({
+              id: 'country-highlight-border',
+              type: 'line',
+              source: 'countries',
+              paint: {
+                'line-color': '#00ff00', // Lime color
+                'line-width': 4, // Thick border
+                'line-opacity': 0 // Start with 0, will be updated on hover
+              },
+              filter: ['==', ['get', 'ISO'], ''] // Start with empty filter
+            });
+          }
+          
+          console.log('Highlight layers check completed');
           cleanupHover = addHoverListeners(map);
         })
         .catch(error => console.error('Error processing GeoJSON:', error));
+    };
+    
+    if (!map.isStyleLoaded()) {
+      map.once('style.load', setupMapLayers);
+    } else {
+      setupMapLayers();
     }
     return () => {
       cleanupHover();
@@ -602,17 +634,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       </div>
       <div ref={mapContainerRef} className="map" style={{ height: '100%' }} />
-      <DataTable
-        lowest={lowest}
-        highest={highest}
-        maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
-        sector={filters.sector}
-        layerMode={layerMode}
-        winsorizationSettings={winsorizationSettings}
-        finalFlexMap={finalFlexMap}
-        finalRawMap={finalRawMap}
-        finalDiffMap={finalDiffMap}
-      />
+              <DataTable 
+          lowest={lowest} 
+          highest={highest} 
+          maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
+          sector={filters.sector}
+          layerMode={layerMode}
+          winsorizationSettings={winsorizationSettings}
+          finalFlexMap={finalFlexMap}
+          finalRawMap={finalRawMap}
+          finalDiffMap={finalDiffMap}
+          onCountryHover={handleCountryHover}
+        />
     </div>
   );
 };

@@ -13,6 +13,7 @@ interface DataTableProps {
   finalFlexMap: { [iso: string]: number };
   finalRawMap: { [iso: string]: number };
   finalDiffMap: { [iso: string]: number };
+  onCountryHover?: (iso: string | null) => void;
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -96,7 +97,8 @@ const DataTable: React.FC<DataTableProps> = ({
   winsorizationSettings: _winsorizationSettings,
   finalFlexMap,
   finalRawMap,
-  finalDiffMap
+  finalDiffMap,
+  onCountryHover
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [countryNamesLoaded, setCountryNamesLoaded] = useState(false);
@@ -156,7 +158,19 @@ const DataTable: React.FC<DataTableProps> = ({
         <div className="section-title">Lowest</div>
                   <div className="table-list">
             {lowest.map(([iso, value]) => (
-              <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
+              <div 
+                key={iso} 
+                className="table-row" 
+                style={{ backgroundColor: getColorForCountry(iso, value) }}
+                onMouseEnter={() => {
+                  console.log('Table hover ENTER (lowest):', iso);
+                  onCountryHover?.(iso);
+                }}
+                onMouseLeave={() => {
+                  console.log('Table hover LEAVE (lowest)');
+                  onCountryHover?.(null);
+                }}
+              >
                 <span className="iso">{countryNamesLoaded ? getCachedCountryName(iso) : iso}</span>
                 <span className="val">{value.toFixed(getDecimalPlaces(sector))}</span>
               </div>
@@ -167,7 +181,19 @@ const DataTable: React.FC<DataTableProps> = ({
           <div className="section-title">Highest</div>
           <div className="table-list">
             {highest.map(([iso, value]) => (
-              <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
+              <div 
+                key={iso} 
+                className="table-row" 
+                style={{ backgroundColor: getColorForCountry(iso, value) }}
+                onMouseEnter={() => {
+                  console.log('Table hover ENTER (highest):', iso);
+                  onCountryHover?.(iso);
+                }}
+                onMouseLeave={() => {
+                  console.log('Table hover LEAVE (highest)');
+                  onCountryHover?.(null);
+                }}
+              >
                 <span className="iso">{countryNamesLoaded ? getCachedCountryName(iso) : iso}</span>
                 <span className="val">{value.toFixed(getDecimalPlaces(sector))}</span>
               </div>
