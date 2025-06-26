@@ -6,18 +6,11 @@ import DataTable from './DataTable';
 import LayerToggle from './LayerToggle';
 import ProjectionSelector, { ProjectionType } from './ProjectionSelector';
 import WinsorizationPanel, { WinsorizationSettings } from './WinsorizationPanel';
-import { winsorizeMap, calculatePercentile } from './utils/winsorization';
+import { winsorizeMap } from './utils/winsorization';
 import './Map.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-// builds [value, color] stops evenly spaced from –max to +max
-const makeStops = (cols: string[], max: number) =>
-  cols
-    .map((c, i) => {
-      const v = -max + (2 * max * i) / (cols.length - 1);
-      return [v, c];
-    })
-    .flat();
+
 
 export interface CSVRow {
   period?: string;
@@ -359,18 +352,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
     // Calculate dynamic max based on actual data range
     // When winsorization is enabled, use the winsorization bounds for color scaling
     let currentValues: number[] = [];
-    let originalValues: number[] = [];
     
     if (layerMode === 'flex') {
       currentValues = Object.values(currentFinalFlexMap);
-      originalValues = Object.values(flexMap);
     } else if (layerMode === 'raw') {
       currentValues = Object.values(currentFinalRawMap);
-      originalValues = Object.values(rawMap);
     } else {
       // For difference mode, always use non-winsorized values
       currentValues = Object.values(currentFinalFlexMap).concat(Object.values(currentFinalRawMap));
-      originalValues = currentValues;
     }
     
     let displayMaxAbs: number;
@@ -393,16 +382,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
       // For tiny values, don't force a minimum of 1
       displayMaxAbs = Math.max(displayMaxAbs, 0.001);
     } else if (winsorizationSettings.enabled && layerMode !== 'difference') {
-      // When winsorization is enabled, use the actual bounds as calculated by the winsorization
-      // This ensures proper asymmetric scaling when needed
-      const lowerBound = calculatePercentile(originalValues, winsorizationSettings.lowerPercentile);
-      const upperBound = calculatePercentile(originalValues, winsorizationSettings.upperPercentile);
-      
-      // For asymmetric data, we need to use the actual bounds, not force symmetry
+      // When winsorization is enabled, use the actual range of winsorized data for color scaling
       const actualMin = Math.min(...currentValues);
       const actualMax = Math.max(...currentValues);
-      
-      // Use the actual range of winsorized data for color scaling
       displayMaxAbs = Math.max(Math.abs(actualMin), Math.abs(actualMax));
       
 
@@ -502,13 +484,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
           'case',
           ['!=', ['get', prop], null],
           [
-            'interpolate',
-            ['exponential', 2], // Usar interpolación exponencial en lugar de lineal
+                      'interpolate',
+          ['exponential', 2], // Use exponential interpolation instead of linear
             [
               'case',
               ['<', ['get', prop], 0],
-              ['*', -1, ['sqrt', ['abs', ['get', prop]]]], // Raíz cuadrada para valores negativos
-              ['sqrt', ['get', prop]] // Raíz cuadrada para valores positivos
+                          ['*', -1, ['sqrt', ['abs', ['get', prop]]]], // Square root for negative values
+            ['sqrt', ['get', prop]] // Square root for positive values
             ],
             -Math.sqrt(effectiveMax), colorArray[0],
             -Math.sqrt(effectiveMax) * 0.5, colorArray[1],

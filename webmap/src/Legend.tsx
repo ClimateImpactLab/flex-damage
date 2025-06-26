@@ -25,7 +25,7 @@ const Legend: React.FC<LegendProps> = ({
   sector,
   ttAnomaly,
   layerMode,
-  winsorizationEnabled = false,
+  winsorizationEnabled: _winsorizationEnabled = false,
 }) => {
   const [countryName, setCountryName] = useState<string>('');
 
