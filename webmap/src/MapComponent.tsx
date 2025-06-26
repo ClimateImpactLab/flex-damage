@@ -5,6 +5,8 @@ import Legend from './Legend';
 import DataTable from './DataTable';
 import LayerToggle from './LayerToggle';
 import ProjectionSelector, { ProjectionType } from './ProjectionSelector';
+import WinsorizationPanel, { WinsorizationSettings } from './WinsorizationPanel';
+import { winsorizeMap } from './utils/winsorization';
 import './Map.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
@@ -58,12 +60,21 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const [layerMode, setLayerMode] = useState<LayerMode>('flex');
   const [projection, setProjection] = useState<ProjectionType>('naturalEarth');
+  const [winsorizationSettings, setWinsorizationSettings] = useState<WinsorizationSettings>({
+    enabled: false,
+    lowerPercentile: 2,
+    upperPercentile: 98,
+    topCoding: true  // Default to top coding enabled
+  });
   const [maxAbs, setMaxAbs] = useState<number>(1);
   const [diffScale, setDiffScale] = useState<number>(1);
   const [lowest, setLowest] = useState<[string, number][]>([]);
   const [highest, setHighest] = useState<[string, number][]>([]);
   const [ttAnomaly, setTtAnomaly] = useState<number | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const [finalFlexMap, setFinalFlexMap] = useState<{ [iso: string]: number }>({});
+  const [finalRawMap, setFinalRawMap] = useState<{ [iso: string]: number }>({});
+  const [finalDiffMap, setFinalDiffMap] = useState<{ [iso: string]: number }>({});
 
   const removeExistingLayersAndSources = useCallback(() => {
     if (!mapRef.current) return;
@@ -119,10 +130,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
       if (!e.features || !e.features.length) return;
       const feature = e.features[0];
       let value: number | null = null;
+      // Use original values for hover display (not processed/winsorized values)
       if (layerMode === 'difference') {
-        value = feature.properties?.diff ?? null;
+        value = feature.properties?.originalDiff ?? null;
       } else {
-        value = feature.properties ? feature.properties[layerMode] ?? null : null;
+        const originalProp = `original${layerMode.charAt(0).toUpperCase() + layerMode.slice(1)}`;
+        value = feature.properties ? feature.properties[originalProp] ?? null : null;
       }
       const iso = feature.properties?.ISO || feature.properties?.iso || '';
       setHoverInfo({ iso, value });
@@ -213,8 +226,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
         
         if (!isNaN(flexVal) && !isNaN(rawVal) && iso && isFinite(flexVal) && isFinite(rawVal)) {
           if (["combined", "high risk", "low risk"].includes(filters.sector.toLowerCase())) {
-            flexVal = flexVal / 60;
-            rawVal = rawVal / 60;
+            flexVal = flexVal;
+            rawVal = rawVal;
           }
           if (flexMap[iso] === undefined) flexMap[iso] = flexVal;
           if (rawMap[iso] === undefined) rawMap[iso] = rawVal;
@@ -222,47 +235,132 @@ const MapComponent: React.FC<MapComponentProps> = ({
       }
     });
 
-    const combinedValues = Object.values(flexMap).concat(Object.values(rawMap));
-    const computedMaxAbs = Math.max(...combinedValues.map(v => Math.abs(v))) || 1;
-    setMaxAbs(computedMaxAbs);
-    if (onMaxAbsChange) onMaxAbsChange(computedMaxAbs);
+    // Apply winsorization if enabled (only for flex and raw, not difference)
+    const currentFinalFlexMap = winsorizationSettings.enabled && layerMode !== 'difference'
+      ? winsorizeMap(flexMap, winsorizationSettings.lowerPercentile, winsorizationSettings.upperPercentile)
+      : flexMap;
+    const currentFinalRawMap = winsorizationSettings.enabled && layerMode !== 'difference'
+      ? winsorizeMap(rawMap, winsorizationSettings.lowerPercentile, winsorizationSettings.upperPercentile)
+      : rawMap;
 
-    const fixedMaxAbsMortality = 300;
-    const displayMaxAbs = isMortality ? fixedMaxAbsMortality : computedMaxAbs;
+    // Calculate dynamic max based on actual data range
+    let currentValues: number[] = [];
+    if (layerMode === 'flex') {
+      currentValues = Object.values(winsorizationSettings.enabled ? currentFinalFlexMap : flexMap);
+    } else if (layerMode === 'raw') {
+      currentValues = Object.values(winsorizationSettings.enabled ? currentFinalRawMap : rawMap);
+    } else {
+      // For difference mode, always use non-winsorized values
+      currentValues = Object.values(currentFinalFlexMap).concat(Object.values(currentFinalRawMap));
+    }
+    
+    let displayMaxAbs: number;
+    
+    if (winsorizationSettings.topCoding) {
+      // Top coding: use the minimum absolute value between max positive and max negative
+      // This clips the scale to the smaller extreme, improving color distribution
+      const actualMin = Math.min(...currentValues);
+      const actualMax = Math.max(...currentValues);
+      const maxPositive = Math.max(actualMax, 0);
+      const maxNegative = Math.abs(Math.min(actualMin, 0));
+      
+      displayMaxAbs = Math.min(maxPositive, maxNegative);
+      
+      // If one side has no values, use the other side
+      if (displayMaxAbs === 0) {
+        displayMaxAbs = Math.max(maxPositive, maxNegative);
+      }
+      
+      // For tiny values, don't force a minimum of 1
+      displayMaxAbs = Math.max(displayMaxAbs, 0.001);
+    } else {
+      // Regular max absolute value approach
+      const computedMaxAbs = Math.max(...currentValues.map(v => Math.abs(v))) || 1;
+      
+      // Round up to a nice number for display, but preserve small scales
+      const roundToNiceNumber = (num: number): number => {
+        // For very small values (< 0.1), don't round to avoid losing scale information
+        if (num < 0.1) {
+          return num; // Use actual value for tiny values
+        }
+        
+        // For small values (< 1), round to 1 decimal place
+        if (num < 1) {
+          return Math.ceil(num * 10) / 10;
+        }
+        
+        const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
+        const normalized = num / magnitude;
+        let rounded;
+        if (normalized <= 1) rounded = 1;
+        else if (normalized <= 2) rounded = 2;
+        else if (normalized <= 5) rounded = 5;
+        else rounded = 10;
+        return rounded * magnitude;
+      };
+      
+      displayMaxAbs = roundToNiceNumber(computedMaxAbs);
+    }
+    
+    setMaxAbs(displayMaxAbs);
+    if (onMaxAbsChange) onMaxAbsChange(displayMaxAbs);
 
     let diffMap: { [iso: string]: number } = {};
-    for (const iso in flexMap) {
-      if (flexMap.hasOwnProperty(iso) && rawMap[iso] !== undefined) {
-        diffMap[iso] = rawMap[iso] - flexMap[iso];
+    for (const iso in currentFinalFlexMap) {
+      if (currentFinalFlexMap.hasOwnProperty(iso) && currentFinalRawMap[iso] !== undefined) {
+        diffMap[iso] = currentFinalRawMap[iso] - currentFinalFlexMap[iso];
       }
     }
-    const diffValues = Object.values(diffMap);
+    
+    // Never winsorize difference map (always use original)
+    const currentFinalDiffMap = diffMap;
+
+    // Update state variables for use in DataTable
+    setFinalFlexMap(currentFinalFlexMap);
+    setFinalRawMap(currentFinalRawMap);
+    setFinalDiffMap(currentFinalDiffMap);
+    
+    const diffValues = Object.values(currentFinalDiffMap);
     const computedMaxAbsDiff = Math.max(...diffValues.map(v => Math.abs(v))) || 1;
     setDiffScale(computedMaxAbsDiff);
 
-    let selectedValues: { [iso: string]: number } = {};
-    if (layerMode === 'flex') selectedValues = flexMap;
-    else if (layerMode === 'raw') selectedValues = rawMap;
-    else if (layerMode === 'difference') selectedValues = diffMap;
-    const sortedEntries = Object.entries(selectedValues).sort((a, b) => a[1] - b[1]);
+    // Use original (non-winsorized) values for the EXTREMES panel
+    let originalSelectedValues: { [iso: string]: number } = {};
+    if (layerMode === 'flex') originalSelectedValues = flexMap;
+    else if (layerMode === 'raw') originalSelectedValues = rawMap;
+    else if (layerMode === 'difference') originalSelectedValues = diffMap;
+    const sortedEntries = Object.entries(originalSelectedValues).sort((a, b) => a[1] - b[1]);
     setLowest(sortedEntries.slice(0, 5) as [string, number][]);
     setHighest(sortedEntries.slice(-5).reverse() as [string, number][]);
 
     let fillColor: any;
     if (layerMode === 'flex' || layerMode === 'raw') {
       const prop = layerMode;
-      // choose your five anchors
-      const anchorCols = isMortality
-        ? ['#00AEFF', '#00FFEA', '#FFFFFF', '#FF8C00', '#FF073A']
-        : ['#FF073A', '#FF8C00', '#FFFFFF', '#00FFEA', '#00AEFF'];
-      // generate smooth stops from –displayMaxAbs to +displayMaxAbs
-      const effectiveMax = displayMaxAbs * 0.5;  // 50% of real max
-      const stops       = makeStops(anchorCols, effectiveMax);
+      // Base color palette from R code: blue (low) to red (high)
+      const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
+      
+      // Color mapping based on sector:
+      // makeStops maps -max to first color, +max to last color
+      // baseColors = ['#2c7bb6' (blue), ..., '#d7191c' (red)]
+      // - Mortality: negative = blue, positive = red => use baseColors (blue to red)
+      // - Labor: negative = red, positive = blue => use reversed (red to blue)  
+      // - Energy: negative = red, positive = blue => use reversed (red to blue)
+      const isLaborOrEnergy = filters.sector?.toLowerCase().includes('labor') || filters.sector?.toLowerCase() === 'energy';
+      const colorArray = isLaborOrEnergy ? [...baseColors].reverse() : baseColors;
+      
+      // Use the actual display max for proper color distribution
+      const effectiveMax = displayMaxAbs;
+      const stops = makeStops(colorArray, effectiveMax);
       fillColor = [
-        'interpolate',
-        ['linear'],
-        ['coalesce', ['get', prop], 0],
-        ...stops
+        'case',
+        ['!=', ['get', prop], null],
+        [
+          'interpolate',
+          ['linear'],
+          ['get', prop],
+          ...stops
+        ],
+        '#e0e0e0'  // Gray color for countries with no data
       ];
       
     }
@@ -301,13 +399,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
     if (!map.isStyleLoaded()) {
       map.once('style.load', () => {
         loadGeoData()
-          .then(data => {
-            data.features.forEach((feature: any) => {
-              const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-              feature.properties.flex = isLoading ? null : flexMap[isoCode] ?? null;
-              feature.properties.raw = isLoading ? null : rawMap[isoCode] ?? null;
-              feature.properties.diff = isLoading ? null : diffMap[isoCode] ?? null;
-            });
+                  .then(data => {
+          data.features.forEach((feature: any) => {
+            const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
+            // Set processed values for visualization
+            feature.properties.flex = isLoading ? null : currentFinalFlexMap[isoCode] ?? null;
+            feature.properties.raw = isLoading ? null : currentFinalRawMap[isoCode] ?? null;
+            feature.properties.diff = isLoading ? null : currentFinalDiffMap[isoCode] ?? null;
+            // Set original values for hover display
+            feature.properties.originalFlex = isLoading ? null : flexMap[isoCode] ?? null;
+            feature.properties.originalRaw = isLoading ? null : rawMap[isoCode] ?? null;
+            feature.properties.originalDiff = isLoading ? null : diffMap[isoCode] ?? null;
+          });
 
             if (!map.getSource('countries')) {
               map.addSource('countries', { type: 'geojson', data });
@@ -340,9 +443,14 @@ const MapComponent: React.FC<MapComponentProps> = ({
         .then(data => {
           data.features.forEach((feature: any) => {
             const isoCode = feature.properties?.ISO || feature.properties?.iso || '';
-            feature.properties.flex = isLoading ? null : flexMap[isoCode] ?? null;
-            feature.properties.raw = isLoading ? null : rawMap[isoCode] ?? null;
-            feature.properties.diff = isLoading ? null : diffMap[isoCode] ?? null;
+            // Set processed values for visualization
+            feature.properties.flex = isLoading ? null : currentFinalFlexMap[isoCode] ?? null;
+            feature.properties.raw = isLoading ? null : currentFinalRawMap[isoCode] ?? null;
+            feature.properties.diff = isLoading ? null : currentFinalDiffMap[isoCode] ?? null;
+            // Set original values for hover display
+            feature.properties.originalFlex = isLoading ? null : flexMap[isoCode] ?? null;
+            feature.properties.originalRaw = isLoading ? null : rawMap[isoCode] ?? null;
+            feature.properties.originalDiff = isLoading ? null : diffMap[isoCode] ?? null;
           });
           if (!map.getSource('countries')) {
             map.addSource('countries', { type: 'geojson', data });
@@ -379,6 +487,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
     geoData,
     layerMode,
     projection,
+    winsorizationSettings,
     isLoading,
     onMaxAbsChange,
     removeExistingLayersAndSources
@@ -391,9 +500,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
         selectedProjection={projection} 
         onChange={handleProjectionChange} 
       />
+      {layerMode !== 'difference' && (
+        <WinsorizationPanel 
+          settings={winsorizationSettings}
+          onChange={setWinsorizationSettings}
+        />
+      )}
       <div className="legend-wrapper">
       <Legend
-        maxAbs={layerMode === 'difference' ? diffScale : (isMortality ? 300 : maxAbs)}
+        maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
         diffScale={diffScale}
         hoverInfo={hoverInfo}
         sector={filters.sector}
@@ -406,9 +521,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
       <DataTable
         lowest={lowest}
         highest={highest}
-        maxAbs={layerMode === 'difference' ? diffScale : (isMortality ? 300 : maxAbs)}
+        maxAbs={layerMode === 'difference' ? diffScale : maxAbs}
         sector={filters.sector}
         layerMode={layerMode}
+        winsorizationSettings={winsorizationSettings}
+        finalFlexMap={finalFlexMap}
+        finalRawMap={finalRawMap}
+        finalDiffMap={finalDiffMap}
       />
     </div>
   );

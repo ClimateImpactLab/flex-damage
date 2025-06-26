@@ -20,6 +20,7 @@ const Legend: React.FC<LegendProps> = ({
   maxAbs,
   diffScale,
   hoverInfo,
+  sector,
   ttAnomaly,
   layerMode,
 }) => {
@@ -69,10 +70,17 @@ const Legend: React.FC<LegendProps> = ({
     );
   }
 
+  // Use the same color palette as the map, adjusted for sector
+  const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
+  // Color mapping based on sector:
+  // baseColors = ['#2c7bb6' (blue), ..., '#d7191c' (red)]
+  // - Mortality: negative = blue, positive = red => use baseColors
+  // - Labor: negative = red, positive = blue => use reversed  
+  // - Energy: negative = red, positive = blue => use reversed
+  const isLaborOrEnergy = sector?.toLowerCase().includes('labor') || sector?.toLowerCase() === 'energy';
+  const colors = isLaborOrEnergy ? [...baseColors].reverse() : baseColors;
+  const gradientStyle = `linear-gradient(to right, ${colors.join(', ')})`;
   const isFlex = layerMode === 'flex';
-  const gradientStyle = isFlex
-    ? 'linear-gradient(to right, #00AEFF, #00FFEA, #FFFFFF, #FF8C00, #FF073A)'
-    : 'linear-gradient(to right, #FF073A, #FF8C00, #FFFFFF, #00FFEA, #00AEFF)';
   const unitLabel = isFlex ? 'Flex Damage' : 'Raw Total';
   const scale = maxAbs;
 

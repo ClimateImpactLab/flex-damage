@@ -1,5 +1,5 @@
 // DataTable.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import './DataTable.css';
 
 interface DataTableProps {
@@ -8,6 +8,26 @@ interface DataTableProps {
   maxAbs: number; // En modo difference, este es diffScale
   sector: string;
   layerMode: 'flex' | 'raw' | 'difference';
+  winsorizationSettings: { enabled: boolean; lowerPercentile: number; upperPercentile: number };
+  finalFlexMap: { [iso: string]: number };
+  finalRawMap: { [iso: string]: number };
+  finalDiffMap: { [iso: string]: number };
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+}
+
+function interpolateColor(color1: { r: number; g: number; b: number }, color2: { r: number; g: number; b: number }, factor: number): string {
+  const r = Math.round(color1.r + factor * (color2.r - color1.r));
+  const g = Math.round(color1.g + factor * (color2.g - color1.g));
+  const b = Math.round(color1.b + factor * (color2.b - color1.b));
+  return `rgb(${r},${g},${b})`;
 }
 
 function getColor(value: number, maxAbs: number, sector: string, layerMode: 'flex' | 'raw' | 'difference'): string {
@@ -31,68 +51,107 @@ function getColor(value: number, maxAbs: number, sector: string, layerMode: 'fle
       return `rgb(${r},${g},${b})`;
     }
   } else {
-    // Para modos flex y raw usamos la lógica anterior.
-    let val = value;
-    if (sector.toLowerCase() === 'mortality') {
-      val = -value;
+    // Use the exact same color logic as the map
+    const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
+    const isLaborOrEnergy = sector.toLowerCase().includes('labor') || sector.toLowerCase() === 'energy';
+    const colorArray = isLaborOrEnergy ? [...baseColors].reverse() : baseColors;
+    
+    // Create stops exactly like the map does: makeStops function
+    const stops: [number, string][] = colorArray.map((c, i) => {
+      const v = -maxAbs + (2 * maxAbs * i) / (colorArray.length - 1);
+      return [v, c];
+    });
+    
+    // Interpolate exactly like Mapbox linear interpolation
+    const clampedValue = Math.max(-maxAbs, Math.min(maxAbs, value));
+    
+    // Find the two stops to interpolate between
+    for (let i = 0; i < stops.length - 1; i++) {
+      const [val1, color1] = stops[i];
+      const [val2, color2] = stops[i + 1];
+      
+      if (clampedValue >= val1 && clampedValue <= val2) {
+        if (val1 === val2) return color1;
+        
+        const factor = (clampedValue - val1) / (val2 - val1);
+        const rgb1 = hexToRgb(color1);
+        const rgb2 = hexToRgb(color2);
+        
+        return interpolateColor(rgb1, rgb2, factor);
+      }
     }
-    const colorA = { r: 255, g: 7, b: 58 };
-    const colorB = { r: 255, g: 140, b: 0 };
-    const colorC = { r: 255, g: 255, b: 255 };
-    const colorD = { r: 0, g: 255, b: 234 };
-    const colorE = { r: 0, g: 174, b: 255 };
-    let t, r, g, b;
-    if (val <= -maxAbs / 2) {
-      t = (val + maxAbs) / (maxAbs / 2);
-      r = Math.round(colorA.r + t * (colorB.r - colorA.r));
-      g = Math.round(colorA.g + t * (colorB.g - colorA.g));
-      b = Math.round(colorA.b + t * (colorB.b - colorA.b));
-    } else if (val < 0) {
-      t = (val + maxAbs / 2) / (maxAbs / 2);
-      r = Math.round(colorB.r + t * (colorC.r - colorB.r));
-      g = Math.round(colorB.g + t * (colorC.g - colorB.g));
-      b = Math.round(colorB.b + t * (colorC.b - colorB.b));
-    } else if (val < maxAbs / 2) {
-      t = val / (maxAbs / 2);
-      r = Math.round(colorC.r + t * (colorD.r - colorC.r));
-      g = Math.round(colorC.g + t * (colorD.g - colorC.g));
-      b = Math.round(colorC.b + t * (colorD.b - colorC.b));
-    } else {
-      t = (val - maxAbs / 2) / (maxAbs / 2);
-      r = Math.round(colorD.r + t * (colorE.r - colorD.r));
-      g = Math.round(colorD.g + t * (colorE.g - colorD.g));
-      b = Math.round(colorD.b + t * (colorE.b - colorD.b));
-    }
-    return `rgb(${r},${g},${b})`;
+    
+    // If we get here, return the last color
+    return stops[stops.length - 1][1];
   }
 }
 
-const DataTable: React.FC<DataTableProps> = ({ lowest, highest, maxAbs, sector, layerMode }) => {
+const DataTable: React.FC<DataTableProps> = ({ 
+  lowest, 
+  highest, 
+  maxAbs, 
+  sector, 
+  layerMode,
+  winsorizationSettings,
+  finalFlexMap,
+  finalRawMap,
+  finalDiffMap
+}) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const getColorForCountry = (iso: string, originalValue: number): string => {
+    // To match map colors, we need to use the same processed value that the map uses
+    let valueForColor: number;
+    if (layerMode === 'flex') {
+      valueForColor = finalFlexMap[iso] ?? originalValue;
+    } else if (layerMode === 'raw') {
+      valueForColor = finalRawMap[iso] ?? originalValue;
+    } else {
+      valueForColor = finalDiffMap[iso] ?? originalValue;
+    }
+    
+    // Use the processed value for color calculation to match map colors
+    return getColor(valueForColor, maxAbs, sector, layerMode);
+  };
+
   return (
     <div className="data-table">
-      <h4 className="table-title">EXTREMES</h4>
-      <div className="table-section">
+      <div className="table-header">
+        <h4 className="table-title">EXTREMES</h4>
+        <button 
+          className="table-toggle"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className={`arrow ${isExpanded ? 'expanded' : 'collapsed'}`}>▼</span>
+        </button>
+      </div>
+      {isExpanded && (
+        <>
+          <div className="table-note">Original values (not winsorized)</div>
+          <div className="table-section">
         <div className="section-title">Lowest</div>
-        <div className="table-list">
-          {lowest.map(([iso, value]) => (
-            <div key={iso} className="table-row" style={{ backgroundColor: getColor(value, maxAbs, sector, layerMode) }}>
-              <span className="iso">{iso}</span>
-              <span className="val">{value.toFixed(2)}</span>
-            </div>
-          ))}
+                  <div className="table-list">
+            {lowest.map(([iso, value]) => (
+              <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
+                <span className="iso">{iso}</span>
+                <span className="val">{value.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="table-section">
-        <div className="section-title">Highest</div>
-        <div className="table-list">
-          {highest.map(([iso, value]) => (
-            <div key={iso} className="table-row" style={{ backgroundColor: getColor(value, maxAbs, sector, layerMode) }}>
-              <span className="iso">{iso}</span>
-              <span className="val">{value.toFixed(2)}</span>
-            </div>
-          ))}
+        <div className="table-section">
+          <div className="section-title">Highest</div>
+          <div className="table-list">
+            {highest.map(([iso, value]) => (
+              <div key={iso} className="table-row" style={{ backgroundColor: getColorForCountry(iso, value) }}>
+                <span className="iso">{iso}</span>
+                <span className="val">{value.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

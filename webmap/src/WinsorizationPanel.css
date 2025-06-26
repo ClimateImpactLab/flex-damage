@@ -1,0 +1,96 @@
+/* WinsorizationPanel.css */
+.winsorization-panel-container {
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.winsorization-panel-title {
+  margin-bottom: 8px;
+}
+
+.winsorization-checkbox {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+}
+
+.winsorization-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.winsorization-panel-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.winsorization-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.winsorization-preset-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.winsorization-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.winsorization-preset-btn.active {
+  background: rgba(0, 174, 255, 0.7);
+  border-color: rgba(0, 174, 255, 0.9);
+}
+
+.winsorization-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.winsorization-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.winsorization-input-group label {
+  font-size: 10px;
+  color: #ccc;
+}
+
+.winsorization-input-group input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  width: 100%;
+}
+
+.winsorization-input-group input:focus {
+  outline: none;
+  border-color: rgba(0, 174, 255, 0.7);
+  background: rgba(255, 255, 255, 0.15);
+} 
