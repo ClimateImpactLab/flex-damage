@@ -81,7 +81,7 @@ const App: React.FC = () => {
 
   return (
     <div className="map-container" style={{ position: 'relative', height: '100vh' }}>
-      <SelectorPanel filters={filters} onSubmit={handleSubmit} />
+      <SelectorPanel onSubmit={handleSubmit} />
       <MapComponent csvData={csvData} filters={filters} geoData={geoData} animate={animate} />
     </div>
   );

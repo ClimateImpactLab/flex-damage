@@ -1,15 +1,15 @@
 /* LayerToggle.css */
 .layer-toggle-container {
     position: absolute;
-    top: 10px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 4;
-    background: rgba(137, 137, 137, 0.803);
+    background: rgba(0, 0, 0, 0.7);
     padding: 6px 8px;
     border-radius: 4px;
     font-size: 12px;
-    color: rgb(57, 56, 56);
+    color: #fff;
     display: flex;
     flex-direction: row;
     gap: 4px;

@@ -12,12 +12,11 @@ interface Filters {
 }
 
 interface SelectorPanelProps {
-  filters: Filters;
   // The onSubmit callback can optionally return a promise if asynchronous actions are performed.
   onSubmit: (filters: Filters) => Promise<void> | void;
 }
 
-const SelectorPanel: React.FC<SelectorPanelProps> = ({ filters, onSubmit }) => {
+const SelectorPanel: React.FC<SelectorPanelProps> = ({ onSubmit }) => {
   // Initialize with empty values - user must select everything
   const [localFilters, setLocalFilters] = useState<Filters>({
     sector: '',
@@ -53,15 +52,6 @@ const SelectorPanel: React.FC<SelectorPanelProps> = ({ filters, onSubmit }) => {
       if (modelValue.toLowerCase() === 'iiasa gdp') return 'low';
     }
     return modelValue.toLowerCase();
-  };
-
-  // Helper function to get model name for API calls
-  const getModelName = (model: string, sector: string): string => {
-    if (sector.toLowerCase() === 'energy') {
-      if (model.toLowerCase() === 'high') return 'OECD Env-Growth';
-      if (model.toLowerCase() === 'low') return 'IIASA GDP';
-    }
-    return model.toLowerCase();
   };
 
   // Function to check available SSP files for a given sector
