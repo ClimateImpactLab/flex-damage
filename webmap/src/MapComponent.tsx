@@ -107,33 +107,45 @@ const MapComponent: React.FC<MapComponentProps> = ({
       });
       mapRef.current.addControl(new mapboxgl.NavigationControl());
       
-      // Add custom recenter button
+      // Add custom recenter button with image
       const recenterButton = document.createElement('button');
       recenterButton.className = 'mapboxgl-ctrl-icon mapboxgl-ctrl-recenter';
-      recenterButton.innerHTML = '🌍';
       recenterButton.title = 'Recenter map';
+      
+      // Create image element
+      const recenterImg = document.createElement('img');
+      recenterImg.src = '/recenter.png';
+      recenterImg.alt = 'Recenter';
+      recenterImg.style.cssText = `
+        width: 20px;
+        height: 20px;
+        filter: invert(1);
+      `;
+      
+      recenterButton.appendChild(recenterImg);
       recenterButton.style.cssText = `
         position: absolute;
-        bottom: 140px;
+        bottom: 200px;
         right: 10px;
         z-index: 10;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
+        background: rgba(0, 0, 0, 0.6);
         border: none;
         border-radius: 4px;
-        padding: 8px 10px;
-        font-size: 14px;
+        padding: 8px;
         cursor: pointer;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       `;
       
       recenterButton.addEventListener('mouseenter', () => {
-        recenterButton.style.background = 'rgba(0, 0, 0, 0.85)';
+        recenterButton.style.background = 'rgba(0, 0, 0, 0.8)';
       });
       
       recenterButton.addEventListener('mouseleave', () => {
-        recenterButton.style.background = 'rgba(0, 0, 0, 0.7)';
+        recenterButton.style.background = 'rgba(0, 0, 0, 0.6)';
       });
       
       recenterButton.addEventListener('click', () => {
