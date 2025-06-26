@@ -75,7 +75,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const [finalFlexMap, setFinalFlexMap] = useState<{ [iso: string]: number }>({});
   const [finalRawMap, setFinalRawMap] = useState<{ [iso: string]: number }>({});
   const [finalDiffMap, setFinalDiffMap] = useState<{ [iso: string]: number }>({});
-  const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
+  const [_highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
 
   const removeExistingLayersAndSources = useCallback(() => {
     if (!mapRef.current) return;
@@ -387,32 +387,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
       // For tiny values, don't force a minimum of 1
       displayMaxAbs = Math.max(displayMaxAbs, 0.001);
     } else {
-      // Regular max absolute value approach
-      const computedMaxAbs = Math.max(...currentValues.map(v => Math.abs(v))) || 1;
-      
-      // Round up to a nice number for display, but preserve small scales
-      const roundToNiceNumber = (num: number): number => {
-        // For very small values (< 0.1), don't round to avoid losing scale information
-        if (num < 0.1) {
-          return num; // Use actual value for tiny values
-        }
-        
-        // For small values (< 1), round to 1 decimal place
-        if (num < 1) {
-          return Math.ceil(num * 10) / 10;
-        }
-        
-        const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
-        const normalized = num / magnitude;
-        let rounded;
-        if (normalized <= 1) rounded = 1;
-        else if (normalized <= 2) rounded = 2;
-        else if (normalized <= 5) rounded = 5;
-        else rounded = 10;
-        return rounded * magnitude;
-      };
-      
-      displayMaxAbs = roundToNiceNumber(computedMaxAbs);
+      // Regular max absolute value approach - use actual data range without rounding
+      displayMaxAbs = Math.max(...currentValues.map(v => Math.abs(v))) || 1;
     }
     
     // Special handling for labor sectors with tiny values for better color distribution
@@ -467,33 +443,29 @@ const MapComponent: React.FC<MapComponentProps> = ({
     let fillColor: any;
     if (layerMode === 'flex' || layerMode === 'raw') {
       const prop = layerMode;
-      // Base color palette from R code: blue (low) to red (high)
       const baseColors = ['#2c7bb6', '#9dcfe4', '#ace7e7', '#ffedaa', '#ffe277', '#fec980', '#d7191c'];
       
-      // Color mapping based on sector:
-      // makeStops maps -max to first color, +max to last color
-      // baseColors = ['#2c7bb6' (blue), ..., '#d7191c' (red)]
-      // - Mortality: negative = blue, positive = red => use baseColors (blue to red)
-      // - Labor: negative = red, positive = blue => use reversed (red to blue)  
-      // - Energy: negative = red, positive = blue => use reversed (red to blue)
       const isLaborOrEnergy = filters.sector?.toLowerCase().includes('labor') || filters.sector?.toLowerCase() === 'energy';
       const colorArray = isLaborOrEnergy ? [...baseColors].reverse() : baseColors;
       
-      // Use the actual display max for proper color distribution
       const effectiveMax = displayMaxAbs;
-      const stops = makeStops(colorArray, effectiveMax);
+      
       fillColor = [
         'case',
         ['!=', ['get', prop], null],
         [
-          'interpolate',
-          ['linear'],
+          'step',
           ['get', prop],
-          ...stops
+          colorArray[0], // more negative
+          -effectiveMax * 0.8, colorArray[1],
+          -effectiveMax * 0.5, colorArray[2],
+          -effectiveMax * 0.1, colorArray[3], // close to 0
+          effectiveMax * 0.1, colorArray[4],  // close to 0
+          effectiveMax * 0.5, colorArray[5],
+          effectiveMax * 0.8, colorArray[6]   // more positove
         ],
         '#e0e0e0'  // Gray color for countries with no data
       ];
-      
     }
 
      else if (layerMode === 'difference') {
