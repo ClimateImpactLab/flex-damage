@@ -1,9 +1,9 @@
 # Workflow to automatically generate documentation
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, refactor-countries]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, refactor-countries]
   workflow_dispatch:
 
 name: Document
