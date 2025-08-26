@@ -32,10 +32,9 @@ jobs:
           needs: roxygen2
 
       - name: Generate documentation
-        run: |
-          cd flex-damage
-          roxygen2::roxygenise()
+        run: roxygen2::roxygenise()
         shell: Rscript {0}
+        working-directory: flex-damage
 
       - name: Commit and push changes
         run: |
