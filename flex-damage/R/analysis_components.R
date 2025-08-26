@@ -217,6 +217,7 @@ save_scenario_results <- function(gamma, global_results, output_dir, impact_var,
 #' @param output_dir Output directory  
 #' @param config Configuration
 #' @param impact_var Impact variable name
+#' @keywords internal
 create_parameter_plots <- function(results, gamma, output_dir, config, impact_var) {
   
   # Parameter distributions plot
@@ -258,6 +259,7 @@ create_parameter_plots <- function(results, gamma, output_dir, config, impact_va
 #' @param output_dir Output directory
 #' @param impact_var Impact variable name  
 #' @param config Configuration
+#' @keywords internal
 create_residuals_plots <- function(global_results, output_dir, impact_var, config) {
   
   # Global impact vs temperature relationship plot

@@ -3,10 +3,61 @@
 
 #' Run complete damage function analysis
 #' 
-#' Main function that runs damage function analysis workflow
+#' Executes the full flexible damage function analysis pipeline including data processing,
+#' econometric estimation, regional calibration, and results generation. Works with any
+#' impact sector (mortality, labor, agriculture, etc.) specified in the configuration.
 #' 
-#' @param config_path Path to configuration file (optional)
-#' @return List containing analysis results
+#' @param config_path Character string. Path to YAML configuration file. If NULL, uses
+#'   default configuration file from the package installation directory. The config file
+#'   must specify data paths, impact variables, analysis scenarios, and output settings.
+#'   
+#' @return List containing analysis results and metadata:
+#' \itemize{
+#'   \item \code{config}: Configuration object used for the analysis
+#'   \item \code{output_directory}: Path to results directory with timestamp  
+#'   \item \code{regional_results}: Data frame of regional damage function coefficients
+#'   \item \code{global_results}: Global adaptation parameter estimates and statistics
+#'   \item \code{data_summary}: Summary statistics of processed input data
+#' }
+#' 
+#' @details 
+#' The analysis implements a two-stage econometric framework:
+#' \enumerate{
+#'   \item \strong{Global Stage}: Estimates income elasticity of adaptation (γ) using 
+#'         fixed effects regression across all regions and time periods
+#'   \item \strong{Regional Stage}: Calibrates quadratic temperature-damage functions 
+#'         for each region using the global adaptation parameter
+#' }
+#' 
+#' Output files are saved to a timestamped directory containing:
+#' \itemize{
+#'   \item Regional polynomial coefficients (main results)
+#'   \item Global adaptation parameter statistics  
+#'   \item Diagnostic plots and residual analysis
+#'   \item Comparison tables and F2-style projections (if enabled)
+#'   \item Data summary and model validation metrics
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' # Run with default configuration
+#' results <- run_damage_analysis()
+#' 
+#' # Run with custom configuration
+#' results <- run_damage_analysis("mortality_config.yaml")
+#' 
+#' # Access results
+#' print(results$output_directory)
+#' head(results$regional_results)
+#' print(paste("Adaptation elasticity:", round(results$global_results$gamma_mu, 3)))
+#' 
+#' # Load saved results later
+#' coeffs <- read.csv(file.path(results$output_directory, "regional_polynomials.csv"))
+#' }
+#' 
+#' @seealso 
+#' \code{\link{load_config}} for configuration file format
+#' \code{\link{generate_comparison_tables}} for generating additional output tables
 #' @export
 run_damage_analysis <- function(config_path = NULL) {
   

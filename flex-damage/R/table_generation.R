@@ -92,13 +92,12 @@ generate_comparison_tables <- function(output_dir, config, raw_data_path = NULL,
     create_regional_comparison_table(results_median, raw_data_path, tables_dir, config)
   }
   
-  # Generate F2-style mortality table if enabled and mortality sector
-  if (config$data$sector == "mortality" && 
-      !is.null(config$output_files$f2_table_settings$generate_f2_table) &&
+  # Generate F2-style damage table if enabled
+  if (!is.null(config$output_files$f2_table_settings$generate_f2_table) &&
       config$output_files$f2_table_settings$generate_f2_table &&
       !is.null(raw_data_path) && file.exists(raw_data_path)) {
-    cat("Generating F2-style mortality damage table...\n")
-    create_f2_mortality_table(results_median, raw_data_path, tables_dir, config)
+    cat("Generating F2-style damage projection table for sector:", config$data$sector, "...\n")
+    create_f2_damage_table(results_median, raw_data_path, tables_dir, config)
   }
   
   cat("Table generation complete. Results saved in:", tables_dir, "\n")
@@ -155,10 +154,10 @@ generate_f2_tables_only <- function(output_dir, config, raw_data_path = NULL) {
   # Use median gamma coefficients
   results_median <- results_scaled[results_scaled$gamma == median(results_scaled$gamma),]
   
-  # Generate F2 mortality table directly in results folder
-  if (config$data$sector == "mortality" && !is.null(raw_data_path) && file.exists(raw_data_path)) {
-    cat("Generating F2-style mortality damage table...\\n")
-    create_f2_mortality_table_direct(results_median, raw_data_path, output_dir, config)
+  # Generate F2 damage table directly in results folder
+  if (!is.null(raw_data_path) && file.exists(raw_data_path)) {
+    cat("Generating F2-style damage projection table for sector:", config$data$sector, "...\\n")
+    create_f2_damage_table_direct(results_median, raw_data_path, output_dir, config)
   }
   
   cat("F2 table generation complete.\\n")
@@ -208,23 +207,61 @@ generate_f2_tables_direct <- function(output_dir, config, raw_data_path = NULL) 
   # Use median gamma coefficients
   results.mu <- results[results$gamma == median(results$gamma),]
   
-  # Generate F2 mortality table
-  if (config$data$sector == "mortality" && !is.null(raw_data_path) && file.exists(raw_data_path)) {
-    create_f2_mortality_table_direct(results.mu, raw_data_path, output_dir, config)
+  # Generate F2 damage table
+  if (!is.null(raw_data_path) && file.exists(raw_data_path)) {
+    create_f2_damage_table_direct(results.mu, raw_data_path, output_dir, config)
   } else {
-    cat("Skipping F2 table: sector is not mortality or raw data not found\\n")
+    cat("Skipping F2 table: raw data not found\\n")
   }
 }
 
-#' Create F2-style mortality damage projection table
+#' Create F2-style damage projection table
 #' 
-#' Creates damage projections table similar to original f2_tables.R
+#' Creates damage projection tables compatible with F2-style analysis methodology.
+#' Works with any impact sector (mortality, labor, etc.) as specified in the configuration.
+#' Generates time-series damage projections across scenarios, time periods, and regions.
 #' 
-#' @param results_median Median gamma coefficients (scaled)
-#' @param raw_data_path Path to raw mortality data
-#' @param tables_dir Output directory
-#' @param config Configuration list
-create_f2_mortality_table <- function(results_median, raw_data_path, tables_dir, config) {
+#' @param results_median Data frame containing median gamma coefficients with scaled 
+#'   damage function parameters (alpha, beta, gamma) for each region
+#' @param raw_data_path Character string. Path to the raw impact data CSV file containing
+#'   historical and projected impacts, temperature, and socioeconomic variables
+#' @param tables_dir Character string. Directory path where F2 tables will be saved
+#' @param config List. Configuration object containing analysis settings including
+#'   sector specification, time periods, scenario filters, and reference values
+#'   
+#' @return Invisibly returns NULL. Creates CSV files in the specified tables directory
+#'   containing F2-style damage projections split by scenario (if configured) or combined.
+#'   
+#' @details 
+#' The function implements the F2 methodology for damage projections:
+#' \itemize{
+#'   \item Uses external temperature data for consistent temperature values
+#'   \item Calculates income adaptation effects using GDP baseline normalization  
+#'   \item Applies quadratic damage functions: (α*T + β*T²) * (GDP_ratio^γ)
+#'   \item Supports filtering by SSP scenario, RCP pathway, and economic model
+#'   \item Includes reference validation values for specified regions and periods
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' # Load configuration and results
+#' config <- load_config("mortality_config.yaml")
+#' results <- read.csv("regional_polynomials.csv")
+#' 
+#' # Create F2 tables
+#' create_f2_damage_table(
+#'   results_median = results,
+#'   raw_data_path = config$data$data_path,
+#'   tables_dir = "output/tables",
+#'   config = config
+#' )
+#' 
+#' # Results saved to tables_dir/estimated_scenarios/
+#' }
+#' 
+#' @seealso \code{\link{create_f2_damage_table_direct}} for direct output to results folder
+#' @export
+create_f2_damage_table <- function(results_median, raw_data_path, tables_dir, config) {
   
   # Load raw data
   raw_data <- data.table::fread(raw_data_path)
@@ -393,16 +430,60 @@ create_f2_mortality_table <- function(results_median, raw_data_path, tables_dir,
   cat("Total projection rows generated:", nrow(f2_table), "\n")
 }
 
-#' Create F2-style mortality table directly in results folder
+#' Create F2-style damage table directly in results folder
 #' 
-#' Creates F2 table in results/estimated_scenarios/ (not tables/)
-#' Uses anomaly column as temperature (matching reference code)
+#' Creates F2-style damage projection tables directly in the results/estimated_scenarios/ 
+#' directory without creating a tables subdirectory. Works with any impact sector and 
+#' uses external temperature data for consistency with reference methodology.
 #' 
-#' @param results_median Median gamma coefficients (scaled)
-#' @param raw_data_path Path to raw mortality data
-#' @param output_dir Results directory (not tables subdirectory)
-#' @param config Configuration list
-create_f2_mortality_table_direct <- function(results.mu, raw_data_path, output_dir, config) {
+#' @param results.mu Data frame containing median gamma coefficients with scaled 
+#'   damage function parameters. Must include columns: region, alpha, beta, gamma
+#' @param raw_data_path Character string. Path to raw impact data CSV file containing
+#'   regional time-series data with temperature, GDP, and impact variables
+#' @param output_dir Character string. Results directory path where estimated_scenarios/ 
+#'   subfolder will be created
+#' @param config List. Configuration object specifying sector, time periods, scenario 
+#'   filters, temperature data path, and F2 table settings
+#'   
+#' @return Invisibly returns NULL. Creates CSV files in output_dir/estimated_scenarios/
+#'   containing damage projections. Files are named by scenario combination (e.g., 
+#'   "SSP3_rcp85_low.csv") or combined (e.g., "all_scenarios_low.csv").
+#'   
+#' @details
+#' This function generates F2-compatible damage projections by:
+#' \itemize{
+#'   \item Loading external temperature data (meantas.csv) for accurate temperature values
+#'   \item Computing GDP baseline effects (2010-2015 average) for income adaptation
+#'   \item Calculating damage using quadratic functions: (α*T + β*T²) * exp(income_effect * γ)
+#'   \item Supporting multiple time periods, scenarios, and economic models
+#'   \item Including validation against reference values for specified regions/periods
+#'   \item Generating progress indicators for large country sets
+#' }
+#' 
+#' The output CSV contains columns: iso, rcp, ssp, model, period, year_center, TT, 
+#' flextotal, rawtotal, f2mort, f2total (where applicable).
+#' 
+#' @examples
+#' \dontrun{
+#' # Load configuration and coefficients  
+#' config <- load_config("damage_config.yaml")
+#' coeffs <- read.csv("results/regional_polynomials.csv")
+#' median_coeffs <- coeffs[coeffs$gamma == median(coeffs$gamma), ]
+#' 
+#' # Generate F2 tables
+#' create_f2_damage_table_direct(
+#'   results.mu = median_coeffs,
+#'   raw_data_path = config$data$data_path, 
+#'   output_dir = "results/analysis_output",
+#'   config = config
+#' )
+#' 
+#' # Check results in: results/analysis_output/estimated_scenarios/
+#' }
+#' 
+#' @seealso \code{\link{create_f2_damage_table}} for output to tables subdirectory
+#' @export  
+create_f2_damage_table_direct <- function(results.mu, raw_data_path, output_dir, config) {
   
   # Load raw data
   rawdf <- data.table::fread(raw_data_path)
@@ -662,6 +743,7 @@ create_f2_mortality_table_direct <- function(results.mu, raw_data_path, output_d
 #' @param results_scaled Scaled coefficient results
 #' @param tables_dir Output directory for tables
 #' @param scale_factor Scale factor used
+#' @keywords internal
 create_coefficient_summary_table <- function(results_scaled, tables_dir, scale_factor) {
   
   # Summary statistics for key coefficients
@@ -698,6 +780,7 @@ create_coefficient_summary_table <- function(results_scaled, tables_dir, scale_f
 #' @param raw_data_path Path to raw data
 #' @param tables_dir Output directory
 #' @param config Configuration list (uses comparison_regions from config)
+#' @keywords internal
 create_regional_comparison_table <- function(results_median, raw_data_path, tables_dir, config) {
   
   cat("Creating regional comparison table...\n")
