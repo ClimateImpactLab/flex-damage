@@ -38,10 +38,9 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          cd flex-damage
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-          git add man/ NAMESPACE
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add flex-damage/man/ flex-damage/NAMESPACE
           if git diff --staged --quiet; then
             echo "No documentation changes to commit"
           else
