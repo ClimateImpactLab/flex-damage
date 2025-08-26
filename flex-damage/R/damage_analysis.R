@@ -61,6 +61,25 @@ run_damage_analysis <- function(config_path = NULL) {
     all_results[[scenario_key]] <- scenario_results
   }
   
+  # Generate F2 tables if requested (skip other tables for F2-only generation)
+  if (config$output_files$generate_tables && 
+      !is.null(config$output_files$f2_table_settings$generate_f2_table) &&
+      config$output_files$f2_table_settings$generate_f2_table) {
+    cat("\n=== Generating F2 Tables ===\n")
+    generate_f2_tables_only(
+      output_dir = base_output_dir,
+      config = config,
+      raw_data_path = data_path
+    )
+  } else if (config$output_files$generate_tables) {
+    cat("\n=== Generating Comparison Tables ===\n")
+    generate_comparison_tables(
+      output_dir = base_output_dir,
+      config = config,
+      raw_data_path = data_path
+    )
+  }
+  
   cat("\n=== Analysis Complete ===\n")
   cat("Results saved to:", base_output_dir, "\n")
   

@@ -6,6 +6,9 @@ data:
   # Path to input data file
   data_path: "/project/cil/home_dirs/scadavidsanchez/impacts/mortality/damage/mortality_regression_full_mc.csv"
   
+  # Path to temperature data file (for F2 table generation)
+  temperature_data_path: "/project/cil/home_dirs/scadavidsanchez/repos/flex-damage-dev/flex-damage/data/meantas.csv"
+  
   # Name of the impact variable column in your data
   impact_variable: "adjusted_mortality"
   
@@ -61,6 +64,63 @@ output_files:
   
   # Save intermediate results
   save_regional_results: true
+  
+  # Generate comparison tables
+  generate_tables: true
+  
+  # Scale factor for coefficients (1e5 for mortality per 100k)
+  scale_factor: 1e5
+  
+  # Regional comparison settings (optional)
+  # Reference scenario: RCP85, SSP3, IIASA GDP model
+  regional_comparisons:
+    reference_scenario:
+      rcp: "rcp85"
+      ssp: "SSP3" 
+      model: "IIASA GDP"
+    reference_values:
+      CHN:  # China
+        values: [-6.4, 3.4]
+      USA:  # US
+        values: [-12.7, -0.1]
+      IND:  # India
+        values: [12.0, 11.1]
+      PAK:  # Pakistan
+        values: [81.4, 97.6]
+      BGD:  # Bangladesh
+        values: [42.0, 49.1]
+      DEU:  # Germany
+        values: [-64.3, -12.8]
+      COD:  # Congo
+        values: [20.0, 20.5]
+
+  # F2 table generation settings
+  f2_table_settings:
+    # Generate F2-style damage projections table
+    generate_f2_table: true
+    
+    # Split output by SSP scenario (true) or combine all (false)
+    split_by_ssp: true
+    
+    # Scenarios to include (if empty, includes all available)
+    include_ssps: 
+      - "SSP3"
+    include_rcps:
+      - "rcp85"
+      # - "rcp45"  # Uncomment to include
+    include_models:
+      - "IIASA GDP"
+      # - "OECD Env-Growth"  # Uncomment to include
+    # Time periods to include
+    time_periods:
+      "2020_2039": [2020, 2039]
+      "2040_2059": [2040, 2059] 
+      "2060_2079": [2060, 2079]
+      "2080_2094": [2080, 2094]
+      "2095_2100": [2095, 2100]
+    
+    # Output subfolder name
+    f2_subfolder: "estimated_scenarios"
   
   # Plot dimensions
   plot_width: 8.56

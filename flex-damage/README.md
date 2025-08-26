@@ -68,6 +68,7 @@ Your YAML config file needs these key settings:
 data:
   data_path: "/project/cil/.../data.csv"
   impact_variable: "adjusted_mortality"  # or "labor_impact", etc.
+  sector: "mortality"  # Used for output directory naming
 
 # Output settings
 output:
@@ -80,6 +81,18 @@ scenarios:
     - "all_gamma_values"
   weighting:
     - "population_weighted"
+
+# Output file settings
+output_files:
+  generate_tables: true
+  scale_factor: 1e5  # For mortality per 100k
+  regional_comparisons:  # Optional - for validation against reference values
+    CHN:
+      reference_values: [-6.4, 3.4]  # Reference values for 1°C, 2°C impacts
+    USA:
+      reference_values: [-12.7, -0.1]
+    IND:
+      reference_values: [12.0, 11.1]
 
 # Other settings...
 ```
@@ -113,7 +126,15 @@ results/
     ├── global_model_coefficients.csv      # Global model fits
     ├── main_model_coefficients.csv        # Base model coefficients
     ├── parameter_distributions.pdf        # Diagnostic plots
-    └── data_summary.txt                   # Data summary statistics
+    ├── adjusted_mortality_temp_relationship.pdf  # Impact-temperature plots
+    ├── residuals_time.pdf                 # Residuals analysis
+    ├── data_summary.txt                   # Data summary statistics
+    └── tables/                            # Comparison tables (NEW)
+        ├── scaled_coefficients.csv        # Coefficients scaled by factor
+        ├── median_gamma_coefficients.csv  # Median gamma results
+        ├── coefficient_summary.csv        # Summary statistics
+        ├── regional_comparison.csv        # Regional comparisons with reference values
+        └── formatted_regional_table.csv   # Publication-ready validation table
 ```
 
 **Directory name format:** `analysis_[impact_var]_[gamma_filter]_[weighting]_[timestamp]`
