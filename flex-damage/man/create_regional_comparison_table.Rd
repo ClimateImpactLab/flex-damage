@@ -23,3 +23,4 @@ create_regional_comparison_table(
 \description{
 Creates regional comparisons for user-specified regions from config
 }
+\keyword{internal}

@@ -18,3 +18,4 @@ create_residuals_plots(global_results, output_dir, impact_var, config)
 \description{
 Creates diagnostic plots for residuals analysis
 }
+\keyword{internal}

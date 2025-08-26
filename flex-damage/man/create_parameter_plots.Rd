@@ -20,3 +20,4 @@ create_parameter_plots(results, gamma, output_dir, config, impact_var)
 \description{
 Creates diagnostic plots for parameter distributions
 }
+\keyword{internal}

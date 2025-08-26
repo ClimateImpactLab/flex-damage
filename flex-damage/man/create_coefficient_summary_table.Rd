@@ -16,3 +16,4 @@ create_coefficient_summary_table(results_scaled, tables_dir, scale_factor)
 \description{
 Creates summary statistics for scaled coefficients
 }
+\keyword{internal}
