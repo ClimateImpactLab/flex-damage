@@ -129,12 +129,15 @@ results/
     ├── adjusted_mortality_temp_relationship.pdf  # Impact-temperature plots
     ├── residuals_time.pdf                 # Residuals analysis
     ├── data_summary.txt                   # Data summary statistics
-    └── tables/                            # Comparison tables (NEW)
-        ├── scaled_coefficients.csv        # Coefficients scaled by factor
-        ├── median_gamma_coefficients.csv  # Median gamma results
-        ├── coefficient_summary.csv        # Summary statistics
-        ├── regional_comparison.csv        # Regional comparisons with reference values
-        └── formatted_regional_table.csv   # Publication-ready validation table
+    ├── tables/                            # Comparison tables
+    │   ├── scaled_coefficients.csv        # Coefficients scaled by factor
+    │   ├── median_gamma_coefficients.csv  # Median gamma results
+    │   ├── coefficient_summary.csv        # Summary statistics
+    │   ├── regional_comparison.csv        # Regional comparisons with reference values
+    │   └── formatted_regional_table.csv   # Publication-ready validation table
+    └── estimated_scenarios/               # F2-style damage projection tables
+        ├── SSP3_rcp85_low.csv             # F2 projections by scenario (if split_by_ssp: true)
+        └── all_scenarios_low.csv          # Combined F2 projections (if split_by_ssp: false)
 ```
 
 **Directory name format:** `analysis_[impact_var]_[gamma_filter]_[weighting]_[timestamp]`
@@ -171,6 +174,81 @@ head(regional_results[, c("region", "alpha", "beta")])
 gamma_stats <- read.csv(file.path(results$output_directory, "gamma_statistics.csv"))
 print(paste("Adaptation elasticity (gamma):", round(gamma_stats$mu, 3)))
 ```
+
+## F2-Style Damage Projection Tables
+
+The package can generate F2-style damage projection tables that reproduce the methodology from reference papers. These tables provide damage projections across time periods and scenarios.
+
+### Generating F2 Tables
+
+To enable F2 table generation, add the following to your config file:
+
+```yaml
+# Data settings
+data:
+  data_path: "/path/to/mortality_regression_full_mc.csv"
+  temperature_data_path: "/path/to/meantas.csv"  # External temperature data
+  impact_variable: "adjusted_mortality"
+  sector: "mortality"
+
+# F2 table generation settings
+output_files:
+  f2_table_settings:
+    generate_f2_table: true
+    split_by_ssp: true  # Creates separate files per SSP scenario
+    include_ssps: ["SSP3"]  # Filter to specific scenarios
+    include_rcps: ["rcp85"] 
+    include_models: ["IIASA GDP"]  # "IIASA GDP" = low model, "OECD Env-Growth" = high model
+    time_periods:
+      "2020_2039": [2020, 2039]
+      "2040_2059": [2040, 2059] 
+      "2060_2079": [2060, 2079]
+      "2080_2094": [2080, 2094]
+      "2095_2100": [2095, 2100]
+```
+
+### Standalone F2 Table Generation
+
+You can also generate F2 tables from existing results without re-running the full analysis:
+
+```r
+library(flexdamage)
+
+# Configuration
+config_path <- "path/to/mortality_config.yaml"
+config <- load_config(config_path)
+
+# Point to existing results directory
+results_dir <- "path/to/existing/results/directory"
+raw_data_path <- config$data$data_path
+
+# Generate F2 tables
+generate_comparison_tables(
+  output_dir = results_dir,
+  config = config,
+  raw_data_path = raw_data_path
+)
+```
+
+### F2 Table Output Format
+
+F2 tables contain the following columns:
+- `iso`: Region/country code
+- `rcp`: RCP scenario (e.g., "rcp85")
+- `ssp`: SSP scenario (e.g., "SSP3") 
+- `model`: Economic model ("IIASA GDP" for low, "OECD Env-Growth" for high)
+- `period`: Time period (e.g., "2020_2039")
+- `year_center`: Center year of the period
+- `TT`: Temperature anomaly (from external temperature data)
+- `flextotal`: Flexible damage function projection
+- `rawtotal`: Raw mortality average for the period
+- `f2mort`, `f2total`: Reference values for validation (SSP3 2095-2100 only)
+
+**Key Features:**
+- Uses external temperature data (`meantas.csv`) for consistent temperature values
+- Matches reference methodology for damage calculations
+- Supports filtering by scenario, model, and time period
+- Can split output by SSP or combine all scenarios
 
 ## Methodology
 
