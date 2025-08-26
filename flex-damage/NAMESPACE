@@ -1,0 +1,8 @@
+export(run_damage_analysis)
+export(create_analysis_config)
+export(load_config)
+export(load_damage_data)
+import(data.table)
+import(dplyr)
+import(ggplot2)
+import(yaml)

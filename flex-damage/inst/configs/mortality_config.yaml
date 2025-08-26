@@ -1,0 +1,72 @@
+# Generic Damage Function Configuration
+# Works with any impact variable (mortality, labor, etc.)
+
+# Data settings
+data:
+  # Path to input data file
+  data_path: "/project/cil/home_dirs/scadavidsanchez/impacts/mortality/damage/mortality_regression_full_mc.csv"
+  
+  # Name of the impact variable column in your data
+  impact_variable: "adjusted_mortality"
+  
+  # Sector name (used for output directory naming and labeling)
+  sector: "mortality"
+
+# Output settings
+output:
+  # Directory where results should be saved
+  output_dir: "/project/cil/home_dirs/scadavidsanchez/repos/flex-damage-dev/flex-damage/examples/results"
+  
+  # Analysis name (used in output directory name)
+  analysis_name: "damage_analysis"
+
+# Data processing settings
+data_processing:
+  # GDP baseline years for delta calculations
+  gdp_baseline_years:
+    start: 2010
+    end: 2015
+  
+  # Data aggregation settings
+  collapse_batch: true
+  
+  # Log impact filtering (remove extreme outliers)
+  log_impact_quantile_filter: 0.05
+
+# Analysis scenarios
+scenarios:
+  gamma_filter:
+    - "all_gamma_values"
+    # - "positive_gamma_only"  # Uncomment to include
+  
+  weighting:
+    - "population_weighted"
+    # - "unweighted"  # Uncomment to include
+
+# Model settings
+modeling:
+  # Fixed effects model type
+  augmented_fe: false
+  
+  # Regional analysis settings
+  force_convexity: true
+  
+  # Minimum observations required per region
+  min_regional_obs: 3
+
+# Output file settings  
+output_files:
+  # Create diagnostic plots
+  generate_plots: true
+  
+  # Save intermediate results
+  save_regional_results: true
+  
+  # Plot dimensions
+  plot_width: 8.56
+  plot_height: 7.93
+
+# Progress reporting
+progress:
+  show_spinner: true
+  show_progress_bar: true

@@ -1,0 +1,30 @@
+# Default settings for flexdamage package
+
+# Package information
+package_info:
+  name: "flexdamage"
+  version: "0.1.0"
+
+# Default file paths (modify if needed)
+paths:
+  config_dir: "inst/configs"
+  output_base: "results"
+  
+# Default analysis settings
+defaults:
+  parallel_processing: true
+  n_cores: NULL  # Auto-detect
+  test_mode: false
+  
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARN, ERROR
+  log_to_file: true
+  log_file_name: "analysis_log.txt"
+
+# Validation settings
+validation:
+  tolerance: 1e-6
+  check_file_structure: true
+  compare_coefficients: true
+  compare_statistics: true

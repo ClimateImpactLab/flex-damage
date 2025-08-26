@@ -1,0 +1,50 @@
+# Workflow to automatically generate documentation
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+name: Document
+
+jobs:
+  document:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: flex-damage
+          extra-packages: any::roxygen2
+          needs: roxygen2
+
+      - name: Generate documentation
+        run: |
+          cd flex-damage
+          roxygen2::roxygenise()
+        shell: Rscript {0}
+
+      - name: Commit and push changes
+        run: |
+          cd flex-damage
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add man/ NAMESPACE
+          if git diff --staged --quiet; then
+            echo "No documentation changes to commit"
+          else
+            git commit -m "Update documentation [skip ci]" || exit 0
+            git push
+          fi

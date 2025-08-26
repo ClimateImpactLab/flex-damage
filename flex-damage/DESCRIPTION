@@ -1,0 +1,28 @@
+Package: flexdamage
+Type: Package
+Title: Flexible Damage Functions for Climate Impact Analysis
+Version: 0.1.0
+Author: Sebastian Cadavid-Sanchez
+Maintainer: Sebastian Cadavid-Sanchez <cadavidsanchez@uchicago.edu>
+Description: Professional R library for computing flexible damage functions 
+    in integrated assessment models. Reproduces reference code functionality
+    with user-specified output locations and configurable parameters.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.0.0
+Imports:
+    data.table,
+    dplyr,
+    tidyr,
+    lfe,
+    mvtnorm,
+    ggplot2,
+    progressr,
+    crayon,
+    yaml,
+    logger
+Suggests:
+    testthat,
+    knitr,
+    rmarkdown
