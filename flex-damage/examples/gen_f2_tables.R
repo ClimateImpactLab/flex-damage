@@ -2,6 +2,7 @@
 # Simple script to generate comparison tables using existing results
 
 library(flexdamage)
+library(dplyr)
 
 # =============================================================================  
 # CONFIGURATION
