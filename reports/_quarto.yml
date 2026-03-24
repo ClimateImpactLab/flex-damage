@@ -6,6 +6,8 @@ execute:
   freeze: auto
   echo: false
   warning: false
+  fig-format: jpeg
+  fig-dpi: 60
 
 format:
   html:

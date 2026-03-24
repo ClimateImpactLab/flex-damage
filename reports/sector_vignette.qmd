@@ -181,7 +181,7 @@ params_info = [
     ("rho", "rho"), ("zeta", "zeta"), ("eta", "eta"), ("rsqr2", "R2²")
 ]
 
-fig, axes = plt.subplots(2, 4, figsize=(10, 5), dpi=72)
+fig, axes = plt.subplots(2, 4, figsize=(10, 5), dpi=60)
 axes = axes.flatten()
 
 # Style: gray filled histograms with thin black edges, matching reference image
@@ -239,7 +239,7 @@ axes[4].set_ylabel("Region count", fontsize=10)
 
 plt.tight_layout()
 plt.show()
-plt.close()
+plt.close('all')
 ```
 
 ## Summary Statistics
@@ -404,7 +404,7 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
     df_valid = df_cross[(df_cross["T_cross"] >= 0) & (df_cross["T_cross"] <= 20)]
 
     if len(df_valid) > 0:
-        fig, ax = plt.subplots(figsize=(8, 4), dpi=72)
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
         ax.hist(df_valid["T_cross"], bins=40, color="#888888", edgecolor="black", linewidth=0.5)
         median_val = df_valid["T_cross"].median()
         ax.axvline(median_val, color="red", linestyle="--", linewidth=1.5, label=f"Median: {median_val:.1f}°C")
@@ -416,7 +416,7 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
         ax.legend(fontsize=9)
         plt.tight_layout()
         plt.show()
-        plt.close()
+        plt.close('all')
     else:
         print("*No valid zero crossings in [0, 20]°C range*")
 ```
@@ -450,7 +450,7 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
     n_neg = (df_slope["max_slope"] <= 0).sum()
     pct_pos = 100 * n_pos / len(df_slope)
 
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=72)
+    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
     ax.hist(df_slope["max_slope"], bins=50, color="#888888", edgecolor="black", linewidth=0.5)
     ax.axvline(0, color="black", linestyle="-", linewidth=1)
     median_val = df_slope["max_slope"].median()
@@ -465,7 +465,7 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
             transform=ax.transAxes, ha="right", va="top", fontsize=9)
     plt.tight_layout()
     plt.show()
-    plt.close()
+    plt.close('all')
 ```
 
 ---
@@ -507,7 +507,7 @@ if len(df_median) > 0 and "beta" in df_median.columns:
         counts.append(n_convex)
         colors.append("#E74C3C")
 
-    fig, ax = plt.subplots(figsize=(8, 3), dpi=72)
+    fig, ax = plt.subplots(figsize=(8, 3), dpi=60)
     bars = ax.barh(categories, counts, color=colors, edgecolor="black", linewidth=0.5)
 
     # Add count labels
@@ -523,7 +523,7 @@ if len(df_median) > 0 and "beta" in df_median.columns:
     ax.tick_params(labelsize=9)
     plt.tight_layout()
     plt.show()
-    plt.close()
+    plt.close('all')
 ```
 
 ```{python}
@@ -533,7 +533,7 @@ if len(df_median) > 0 and "beta" in df_median.columns:
 import matplotlib.pyplot as plt
 
 if len(df_median) > 0 and "beta" in df_median.columns:
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=72)
+    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
     ax.hist(df_median["beta"], bins=50, color="#888888", edgecolor="black", linewidth=0.5)
     ax.axvline(0, color="red", linestyle="--", linewidth=1.5)
     ax.set_xlabel("β (Quadratic Coefficient)", fontsize=10)
@@ -543,7 +543,7 @@ if len(df_median) > 0 and "beta" in df_median.columns:
     ax.tick_params(labelsize=9)
     plt.tight_layout()
     plt.show()
-    plt.close()
+    plt.close('all')
 ```
 
 ## Convexity by Country
@@ -592,7 +592,7 @@ import matplotlib.pyplot as plt
 if len(df_median) > 0 and "rsqr1" in df_median.columns:
     rsqr = df_median["rsqr1"].dropna()
 
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=72)
+    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
     ax.hist(rsqr, bins=50, color="#888888", edgecolor="black", linewidth=0.5)
     median_val = rsqr.median()
     ax.axvline(median_val, color="red", linestyle="--", linewidth=1.5, label=f"Median: {median_val:.3f}")
@@ -604,7 +604,7 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
     ax.legend(fontsize=9)
     plt.tight_layout()
     plt.show()
-    plt.close()
+    plt.close('all')
 ```
 
 ## Error Model R-squared (rsqr2) Quantiles 
@@ -708,7 +708,7 @@ if len(df_median) > 0 and "eta" in df_median.columns:
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
     ]
 
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=72)
+    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
 
     for i, (_, row) in enumerate(worst.iterrows()):
         alpha = row["alpha"] if "alpha" in row.index else 0
@@ -727,7 +727,7 @@ if len(df_median) > 0 and "eta" in df_median.columns:
     ax.legend(fontsize=7, loc="upper left", ncol=2)
     plt.tight_layout()
     plt.show()
-    plt.close()
+    plt.close('all')
 ```
 
 ---
@@ -755,9 +755,9 @@ from pathlib import Path
 IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
 
 if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
-    # Load shapefile and simplify geometry aggressively for smaller file size
+    # Load shapefile and simplify geometry for smaller file size
     gdf = gpd.read_file(IR_SHAPEFILE)
-    gdf["geometry"] = gdf["geometry"].simplify(0.1)
+    gdf["geometry"] = gdf["geometry"].simplify(0.15)
 
     # Merge with parameter data
     gdf_merged = gdf.merge(df_median, left_on="hierid", right_on="region", how="inner")
@@ -766,32 +766,27 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
         # Symmetric limits for alpha
         vmax = np.percentile(np.abs(gdf_merged["alpha"].dropna()), 95)
 
-        fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
 
         gdf_merged.plot(
             column="alpha",
             ax=ax,
-            cmap="RdBu",          # Red = negative, Blue = positive
+            cmap="RdBu",
             vmin=-vmax,
             vmax=vmax,
             legend=True,
-            legend_kwds={"shrink": 0.6, "label": "α (linear coefficient)"},
+            legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
-            linewidth=0,           # No borders between IRs
+            linewidth=0,
         )
 
-        ax.set_title(f"α (Linear Coefficient) at Impact Region Level (n={len(gdf_merged):,} regions)", fontsize=14)
+        ax.set_title(f"α (Linear Coefficient)", fontsize=10)
         ax.set_xlim(-180, 180)
         ax.set_ylim(-60, 85)
         ax.axis("off")
-
-        # Add annotation
-        ax.text(0.5, -0.02, "Red = negative α (damage increases with T) | Blue = positive α",
-                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
-
         plt.tight_layout()
         plt.show()
-        plt.close()
+        plt.close('all')
     else:
         print("*No matching regions between shapefile and parameters*")
 elif not IR_SHAPEFILE.exists():
@@ -815,32 +810,27 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
         # Symmetric limits for beta
         vmax = np.percentile(np.abs(gdf_merged["beta"].dropna()), 95)
 
-        fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
 
         gdf_merged.plot(
             column="beta",
             ax=ax,
-            cmap="RdBu",          # Red = negative (concave), Blue = positive (convex)
+            cmap="RdBu",
             vmin=-vmax,
             vmax=vmax,
             legend=True,
-            legend_kwds={"shrink": 0.6, "label": "β (quadratic coefficient)"},
+            legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
             linewidth=0,
         )
 
-        ax.set_title(f"β (Quadratic Coefficient) at Impact Region Level", fontsize=14)
+        ax.set_title(f"β (Quadratic Coefficient)", fontsize=10)
         ax.set_xlim(-180, 180)
         ax.set_ylim(-60, 85)
         ax.axis("off")
-
-        # Add annotation
-        ax.text(0.5, -0.02, "Red = negative β (concave, accelerating damage) | Blue = positive β (convex)",
-                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
-
         plt.tight_layout()
         plt.show()
-        plt.close()
+        plt.close('all')
 ```
 
 ## R-squared (Fit Quality)
@@ -854,33 +844,27 @@ captures more of the variance in the data.
 
 if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
     if len(gdf_merged) > 0 and "rsqr1" in gdf_merged.columns:
-        fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
 
         gdf_merged.plot(
             column="rsqr1",
             ax=ax,
-            cmap="YlGnBu",        # Sequential: low (yellow) to high (blue)
+            cmap="YlGnBu",
             vmin=0,
             vmax=1,
             legend=True,
-            legend_kwds={"shrink": 0.6, "label": "R² (stage 1)"},
+            legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
             linewidth=0,
         )
 
-        ax.set_title(f"R² (Stage 1 Fit Quality) at Impact Region Level", fontsize=14)
+        ax.set_title(f"R² (Fit Quality)", fontsize=10)
         ax.set_xlim(-180, 180)
         ax.set_ylim(-60, 85)
         ax.axis("off")
-
-        # Add annotation
-        median_rsqr = gdf_merged["rsqr1"].median()
-        ax.text(0.5, -0.02, f"Higher R² = better fit | Median R² = {median_rsqr:.3f}",
-                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
-
         plt.tight_layout()
         plt.show()
-        plt.close()
+        plt.close('all')
 ```
 
 ---
@@ -913,7 +897,7 @@ IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/wor
 # Create output directory for downloadable maps
 os.makedirs("_output/maps", exist_ok=True)
 
-# Load shapefile once and simplify geometry aggressively to reduce file size
+# Load shapefile once and simplify geometry to reduce file size
 gdf_base = None
 if IR_SHAPEFILE.exists():
     gdf_base = gpd.read_file(IR_SHAPEFILE)
@@ -1054,95 +1038,90 @@ if df_raw is not None and region_col and temp_col and y_col and target_year and 
                 ])), 95)
                 vmax_resid = np.percentile(gdf_scenario["residual"].abs().dropna(), 95)
 
-                # ===== 4 MAPS (compact for file size) =====
-                scenario_tag = f"{rcp}_{ssp}_{model}"
+                # ===== ALL 4 MAPS =====
 
                 # Map 1: Flex Prediction
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
                 gdf_scenario.plot(
                     column="flex", ax=ax, cmap="RdBu",
                     vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.5},
+                    legend=True, legend_kwds={"shrink": 0.4},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Flex Prediction", fontsize=11)
+                ax.set_title(f"Flex Prediction", fontsize=10)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
                 plt.show()
-                plt.close()
+                plt.close('all')
 
-                # Map 2: Raw Simulation
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
+                # Map 2: Raw Actual
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
                 gdf_scenario.plot(
                     column="raw_y", ax=ax, cmap="RdBu",
                     vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.5},
+                    legend=True, legend_kwds={"shrink": 0.4},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Raw Simulation", fontsize=11)
+                ax.set_title(f"Raw Actual", fontsize=10)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
                 plt.show()
-                plt.close()
+                plt.close('all')
 
                 # Map 3: Difference (Flex - Raw)
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
                 gdf_scenario.plot(
                     column="residual", ax=ax, cmap="RdBu",
                     vmin=-vmax_resid, vmax=vmax_resid,
-                    legend=True, legend_kwds={"shrink": 0.5},
+                    legend=True, legend_kwds={"shrink": 0.4},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Difference (Flex - Raw)", fontsize=11)
+                ax.set_title(f"Difference (Flex - Raw)", fontsize=10)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
                 plt.show()
-                plt.close()
+                plt.close('all')
 
                 # Map 4: Sign Agreement
-                gdf_scenario["sign_val"] = np.where(
-                    gdf_scenario["sign_match"],
-                    gdf_scenario["residual"].abs(),
-                    -gdf_scenario["residual"].abs()
-                )
-                cmap_sign = LinearSegmentedColormap.from_list("sign", ["#d73027", "#ffffff", "#1a9850"])
-
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+                # Convert boolean to float for continuous colorbar
+                gdf_scenario["sign_match_float"] = gdf_scenario["sign_match"].astype(float)
                 gdf_scenario.plot(
-                    column="sign_val", ax=ax, cmap=cmap_sign,
-                    vmin=-vmax_resid, vmax=vmax_resid,
-                    legend=True, legend_kwds={"shrink": 0.5},
+                    column="sign_match_float", ax=ax, cmap="RdYlGn",
+                    vmin=0, vmax=1,
+                    legend=True, legend_kwds={"shrink": 0.4},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Sign Agreement ({sign_pct:.1f}%)", fontsize=11)
+                ax.set_title(f"Sign Agreement (green=match)", fontsize=10)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
                 plt.show()
-                plt.close()
+                plt.close('all')
 
-                # Scatter plot (static matplotlib for smaller file)
-                fig, ax = plt.subplots(figsize=(6, 5), dpi=48)
-                ax.scatter(merged["raw_y"], merged["flex"], s=8, alpha=0.5, c="steelblue")
+                # Scatter plot (sample max 3000 points)
+                plot_df = merged.sample(min(3000, len(merged)), random_state=42) if len(merged) > 3000 else merged
+                fig, ax = plt.subplots(figsize=(5, 4), dpi=60)
+                ax.scatter(plot_df["raw_y"], plot_df["flex"], s=6, alpha=0.4, c="steelblue")
                 lims = [min(merged["raw_y"].min(), merged["flex"].min()),
                         max(merged["raw_y"].max(), merged["flex"].max())]
-                ax.plot(lims, lims, "r--", linewidth=1.5)
-                ax.set_xlabel("Raw Simulation", fontsize=10)
-                ax.set_ylabel("Flex Prediction", fontsize=10)
-                ax.set_title(f"r = {corr:.4f}", fontsize=11)
+                ax.plot(lims, lims, "r--", linewidth=1)
+                ax.set_xlabel("Raw", fontsize=9)
+                ax.set_ylabel("Flex", fontsize=9)
+                ax.set_title(f"r = {corr:.4f}", fontsize=10)
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-                ax.tick_params(labelsize=9)
+                ax.tick_params(labelsize=8)
                 plt.tight_layout()
                 plt.show()
-                plt.close()
+                plt.close('all')
 
                 # Worst 10 predictions table
                 worst = merged.nlargest(10, "abs_residual")[
