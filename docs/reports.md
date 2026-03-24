@@ -102,11 +102,11 @@ Reports are hosted separately at [c1587s.github.io/flex-damage-reports](https://
 
 ### Agriculture (Impact Regions)
 
+- [Cassava](https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html){target="_blank"}
 - [Corn](https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html){target="_blank"}
 - [Rice](https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html){target="_blank"}
-- [Soy](https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html){target="_blank"}
 - [Sorghum](https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html){target="_blank"}
-- [Cassava](https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html){target="_blank"}
+- [Soy](https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html){target="_blank"}
 - [Wheat Combined](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html){target="_blank"}
 - [Wheat Spring](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html){target="_blank"}
 - [Wheat Winter](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html){target="_blank"}

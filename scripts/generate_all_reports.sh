@@ -41,27 +41,32 @@ for crop in $CROPS; do
         continue
     fi
 
-    # Build quarto args
-    QARGS="--to html --embed-resources"
-    QARGS="$QARGS -P sector:agriculture -P subsector:$crop"
-    QARGS="$QARGS -P params_csv:$CSV -P global_json:$JSON"
-
+    # Build source data arg
+    SOURCE_ARG=""
     if [ -d "$ZARR" ]; then
-        QARGS="$QARGS -P source_data:$ZARR"
+        SOURCE_ARG="--source-data $ZARR"
     else
         echo "WARNING: no zarr at $ZARR (F2 comparison will be skipped)"
     fi
 
-    # Render
-    cd ${FLEXDAMAGE}/reports
-    if quarto render sector_vignette.qmd $QARGS; then
-        SIZE=$(ls -lh _output/sector_vignette.html | awk '{print $5}')
-        echo "$crop OK ($SIZE)"
+    # Determine output path
+    if [ -d "$REPORTS_REPO" ]; then
+        OUTPUT="${REPORTS_REPO}/agriculture_${crop}_ir.html"
+    else
+        OUTPUT="${FLEXDAMAGE}/reports/_output/agriculture_${crop}_ir.html"
+    fi
 
-        # Copy to reports repo
-        if [ -d "$REPORTS_REPO" ]; then
-            cp _output/sector_vignette.html ${REPORTS_REPO}/agriculture_${crop}_ir.html
-        fi
+    # Render using the wrapper script
+    if python ${FLEXDAMAGE}/scripts/render_report.py \
+        --sector agriculture \
+        --subsector $crop \
+        --params-csv "$CSV" \
+        --global-json "$JSON" \
+        $SOURCE_ARG \
+        --output "$OUTPUT"; then
+
+        SIZE=$(ls -lh "$OUTPUT" | awk '{print $5}')
+        echo "$crop OK ($SIZE)"
     else
         echo "$crop FAILED"
         FAILED="$FAILED $crop(render_failed)"
