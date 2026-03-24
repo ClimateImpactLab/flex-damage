@@ -263,7 +263,7 @@ def update_docs_index(docs_dir: Path):
 
     html_content += """
     <p class="meta">
-        Generated with <a href="https://github.com/ClimateImpactLab/flexdamage">FlexDamage</a>
+        Generated with <a href="https://github.com/ClimateImpactLab/flex-damage">FlexDamage</a>
     </p>
 </body>
 </html>

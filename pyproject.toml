@@ -70,9 +70,9 @@ all = [
 flexdamage = "flexdamage.pipeline:run_pipeline"
 
 [project.urls]
-Homepage = "https://github.com/ClimateImpactLab/flexdamage"
-Documentation = "https://github.com/ClimateImpactLab/flexdamage"
-Repository = "https://github.com/ClimateImpactLab/flexdamage"
+Homepage = "https://github.com/ClimateImpactLab/flex-damage"
+Documentation = "https://climateimpactlab.github.io/flex-damage/"
+Repository = "https://github.com/ClimateImpactLab/flex-damage"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flexdamage"]

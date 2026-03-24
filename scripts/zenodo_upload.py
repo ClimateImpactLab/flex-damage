@@ -282,19 +282,12 @@ def generate_readme(version: str, datasets: List[dict]) -> str:
 
 Version {version}
 
-## Authors
-
-James Rising (jarising@gmail.com)
-Sebastian Cadavid Sanchez (scadavidsanchez@uchicago.edu)
-Climate Impact Lab
-
 ## Abstract
 
-This dataset provides econometrically estimated parameters for climate damage
-functions covering multiple economic sectors. The parameters relate temperature
-anomalies to economic impacts while accounting for income-dependent adaptation,
-enabling their use in integrated assessment models and social cost of carbon
-calculations.
+This dataset provides estimated parameters for climate damage functions covering
+multiple economic sectors. The parameters relate temperature anomalies to economic
+impacts while accounting for income-dependent adaptation, enabling their use in
+integrated assessment models and social cost of carbon calculations.
 
 The estimation follows a two-stage procedure. First, a global income elasticity
 parameter (gamma) is estimated via fixed-effects regression on binned
@@ -378,7 +371,7 @@ Each subsector directory contains three files:
 
 ## Variable Definitions
 
-Each row contains 12 fields. `region` identifies the location (Impact Region ID or ISO3 code). `gamma` is the income elasticity quantile value for this row (there are 19 rows per region, one per quantile). `alpha` and `beta` are the linear and quadratic temperature coefficients in the polynomial M(T) = alpha * T + beta * T^2. The variance-covariance matrix of (alpha, beta) is given by `sigma11` (variance of alpha), `sigma12` (covariance), and `sigma22` (variance of beta), enabling joint uncertainty sampling. `rho` is the correlation between regional and global polynomial residuals, used to maintain spatial covariance in Monte Carlo draws. `zeta` is the temperature-dependent error scale and `eta` is the residual noise standard deviation -- together they describe the prediction uncertainty that grows with temperature. `rsqr1` measures the polynomial fit quality and `rsqr2` measures the error model fit.
+Each row in the regional parameters file contains 12 fields: region identifies the location, gamma is the income elasticity quantile, alpha and beta are the linear and quadratic temperature coefficients. sigma11, sigma12, sigma22 form the variance-covariance matrix of (alpha, beta). rho is the correlation with global residuals. zeta and eta describe the temperature-dependent and residual error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
 
 ## Usage Notes
 
@@ -395,9 +388,7 @@ CC-BY-4.0
 
 ## Contact
 
-Climate Impact Lab
-Institution: University of Chicago
-Repository: https://github.com/ClimateImpactLab/flexdamage
+Climate Impact Lab -- https://github.com/ClimateImpactLab/flex-damage
 """
 
 

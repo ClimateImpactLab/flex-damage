@@ -21,7 +21,7 @@ ensuring long-term availability and citability.
 
 Each Zenodo upload has two DOIs:
 
-- **Version DOI**: Points to a specific version (e.g., `10.5281/zenodo.19199532`).
+- **Version DOI**: Points to a specific version (e.g., `10.5281/zenodo.19199919`).
   Always returns the same data.
 - **Concept DOI**: Points to the latest version. When parameters are
   re-estimated, a new version is uploaded under the same concept DOI.
@@ -33,14 +33,14 @@ use the concept DOI.
 
 | Version | Date | DOI | Sectors |
 |---------|------|-----|---------|
-| 1.0.0-alpha | 2026-03-22 | [10.5281/zenodo.19199532](https://zenodo.org/records/19199532) | Agriculture (8 crops) |
+| 1.0.0-alpha | 2026-03-22 | [10.5281/zenodo.19199919](https://zenodo.org/records/19199919) | Agriculture (8 crops) |
 
 ### Download
 
 Direct download:
 
 ```bash
-wget https://zenodo.org/records/19199532/files/flexdamage-parameters-v1.0.0-alpha.zip
+wget https://zenodo.org/records/19199919/files/flexdamage-parameters-v1.0.0-alpha.zip
 unzip flexdamage-parameters-v1.0.0-alpha.zip
 ```
 
@@ -49,7 +49,7 @@ Via API (useful for automation):
 ```python
 import requests
 
-r = requests.get("https://zenodo.org/api/records/19199532")
+r = requests.get("https://zenodo.org/api/records/19199919")
 files = r.json()["files"]
 for f in files:
     if f["key"].endswith(".zip"):
@@ -84,4 +84,4 @@ data. The concept DOI automatically resolves to the latest version.
 
 ### Citation
 
-Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.0.0-alpha) [Data set]. Zenodo. https://zenodo.org/records/19199532
+Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.0.0-alpha) [Data set]. Zenodo. https://zenodo.org/records/19199919

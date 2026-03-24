@@ -2,19 +2,12 @@
 
 Version 1.0.0-alpha
 
-## Authors
-
-James Rising (jarising@gmail.com)
-Sebastian Cadavid Sanchez (scadavidsanchez@uchicago.edu)
-Climate Impact Lab
-
 ## Abstract
 
-This dataset provides econometrically estimated parameters for climate damage
-functions covering multiple economic sectors. The parameters relate temperature
-anomalies to economic impacts while accounting for income-dependent adaptation,
-enabling their use in integrated assessment models and social cost of carbon
-calculations.
+This dataset provides estimated parameters for climate damage functions covering
+multiple economic sectors. The parameters relate temperature anomalies to economic
+impacts while accounting for income-dependent adaptation, enabling their use in
+integrated assessment models and social cost of carbon calculations.
 
 The estimation follows a two-stage procedure. First, a global income elasticity
 parameter (gamma) is estimated via fixed-effects regression on binned
@@ -105,22 +98,7 @@ Each subsector directory contains three files:
 
 ## Variable Definitions
 
-The regional parameters file contains the following columns:
-
-| Variable | Description |
-|----------|-------------|
-| region   | Region identifier (Impact Region ID or ISO3 code) |
-| gamma    | Income elasticity quantile value |
-| alpha    | Linear temperature coefficient |
-| beta     | Quadratic temperature coefficient |
-| sigma11  | Var(alpha) |
-| sigma12  | Cov(alpha, beta) |
-| sigma22  | Var(beta) |
-| rho      | Correlation with global residual process |
-| zeta     | Temperature-dependent heteroskedasticity parameter |
-| eta      | Residual standard deviation |
-| rsqr1    | R^2 of polynomial fit |
-| rsqr2    | R^2 of heteroskedasticity model |
+Each row in the regional parameters file contains 12 fields: region identifies the location, gamma is the income elasticity quantile, alpha and beta are the linear and quadratic temperature coefficients. sigma11, sigma12, sigma22 form the variance-covariance matrix of (alpha, beta). rho is the correlation with global residuals. zeta and eta describe the temperature-dependent and residual error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
 
 ## Usage Notes
 
@@ -137,6 +115,4 @@ CC-BY-4.0
 
 ## Contact
 
-Climate Impact Lab
-Institution: University of Chicago
-Repository: https://github.com/ClimateImpactLab/flexdamage
+Climate Impact Lab -- https://github.com/ClimateImpactLab/flex-damage

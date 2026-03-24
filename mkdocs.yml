@@ -1,9 +1,9 @@
 site_name: FlexDamage
 site_description: Flexible damage function estimation for climate impact assessment
 site_author: Climate Impact Lab
-site_url: https://climateimpactlab.github.io/flexdamage/
-repo_url: https://github.com/ClimateImpactLab/flexdamage
-repo_name: ClimateImpactLab/flexdamage
+site_url: https://climateimpactlab.github.io/flex-damage/
+repo_url: https://github.com/ClimateImpactLab/flex-damage
+repo_name: ClimateImpactLab/flex-damage
 
 use_directory_urls: false
 
