@@ -1,0 +1,9 @@
+color:
+  primary: "#1A5276"
+  secondary: "#2E86C1"
+  foreground: "#2C3E50"
+  background: "#FFFFFF"
+
+typography:
+  base:
+    family: "Libertinus Serif"

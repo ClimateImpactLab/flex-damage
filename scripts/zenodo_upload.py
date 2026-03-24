@@ -1,0 +1,1095 @@
+#!/usr/bin/env python3
+"""
+Upload FlexDamage parameter database to Zenodo.
+
+Creates a professional release with:
+- README.md (visible on Zenodo page)
+- manifest.json (machine-readable index)
+- flexdamage-parameters-v{version}.zip (organized data)
+
+Usage:
+    # Build the ZIP with proper structure
+    python scripts/zenodo_upload.py --build \
+        --input-dir /path/to/parameters --version 1.0.0-alpha
+
+    # Dry run (preview what would be uploaded)
+    python scripts/zenodo_upload.py --sandbox --dry-run --version 1.0.0-alpha
+
+    # Upload to sandbox as draft
+    python scripts/zenodo_upload.py --sandbox --draft --version 1.0.0-alpha
+
+    # Publish
+    python scripts/zenodo_upload.py --sandbox --publish
+
+    # Delete a draft
+    python scripts/zenodo_upload.py --sandbox --delete 473052
+"""
+
+import argparse
+import hashlib
+import json
+import logging
+import os
+import re
+import sys
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+def _load_env():
+    """Load .env file for API tokens."""
+    env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().strip().split('\n'):
+            if '=' in line and not line.startswith('#'):
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
+_load_env()
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from flexdamage.utils import setup_logging
+
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
+logger = logging.getLogger("zenodo_upload")
+
+ZENODO_URL = "https://zenodo.org/api"
+ZENODO_SANDBOX_URL = "https://sandbox.zenodo.org/api"
+ZENODO_STATE_FILE = ".zenodo.json"
+
+# Impact Regions shapefile (included in Zenodo ZIP)
+IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+
+# Sector configurations
+SECTORS = {
+    "agriculture": {
+        "subsectors": ["corn", "rice", "soy", "sorghum", "cassava",
+                       "wheat_combined", "wheat_spring", "wheat_winter"],
+        "resolutions": ["ir"],
+    },
+    "mortality": {
+        "subsectors": ["heat", "cold"],
+        "resolutions": ["ir", "country"],
+    },
+    "energy": {
+        "subsectors": ["total"],
+        "resolutions": ["ir"],
+    },
+    "labor": {
+        "subsectors": ["high_risk", "low_risk"],
+        "resolutions": ["ir"],
+    },
+}
+
+
+def get_api_url(sandbox: bool) -> str:
+    return ZENODO_SANDBOX_URL if sandbox else ZENODO_URL
+
+
+def get_token(sandbox: bool) -> str:
+    """Get API token from environment."""
+    var_name = "ZENODO_SANDBOX_TOKEN" if sandbox else "ZENODO_TOKEN"
+    token = os.environ.get(var_name)
+    if not token:
+        raise ValueError(
+            f"Missing environment variable: {var_name}\n"
+            f"Get your token from: {'sandbox.' if sandbox else ''}zenodo.org/account/settings/applications/"
+        )
+    return token
+
+
+def load_state() -> dict:
+    """Load persisted Zenodo state."""
+    state_path = Path(ZENODO_STATE_FILE)
+    if state_path.exists():
+        with open(state_path) as f:
+            return json.load(f)
+    return {}
+
+
+def save_state(state: dict) -> None:
+    """Save Zenodo state."""
+    with open(ZENODO_STATE_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def compute_sha256(path: Path) -> str:
+    """Compute SHA256 hash of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def compute_sha256_bytes(data: bytes) -> str:
+    """Compute SHA256 hash of bytes."""
+    return hashlib.sha256(data).hexdigest()
+
+
+def format_size(size_bytes: int) -> str:
+    """Format file size for display."""
+    if size_bytes >= 1_000_000_000:
+        return f"{size_bytes / 1_000_000_000:.1f} GB"
+    elif size_bytes >= 1_000_000:
+        return f"{size_bytes / 1_000_000:.1f} MB"
+    elif size_bytes >= 1_000:
+        return f"{size_bytes / 1_000:.1f} KB"
+    else:
+        return f"{size_bytes} B"
+
+
+def parse_input_filename(filename: str) -> Optional[Tuple[str, str]]:
+    """
+    Parse input filename to extract sector and subsector.
+
+    Handles both formats:
+    - New: agriculture__corn__regional_parameters.csv
+    - Old: agriculture_corn_physical.csv
+    """
+    stem = Path(filename).stem
+
+    # New format: sector__subsector__filetype
+    if "__" in stem:
+        parts = stem.split("__")
+        if len(parts) >= 2:
+            return parts[0], parts[1]
+
+    # Old format: sector_subsector_units[_metadata]
+    if stem.endswith("_metadata"):
+        stem = stem[:-9]
+
+    parts = stem.split("_")
+    if len(parts) >= 2 and parts[0] in SECTORS:
+        # Handle multi-word subsectors
+        if parts[0] == "agriculture" and len(parts) >= 3:
+            if parts[1] == "wheat" and parts[2] in ("spring", "winter", "combined"):
+                return parts[0], f"{parts[1]}_{parts[2]}"
+        return parts[0], parts[1]
+
+    return None
+
+
+def collect_datasets(input_dir: Path) -> List[dict]:
+    """
+    Collect all datasets from input directory.
+
+    Returns list of dataset info with paths to CSV, global_results, metadata.
+    """
+    datasets = []
+    seen = set()
+
+    # Find all CSV files
+    for csv_path in sorted(input_dir.glob("*.csv")):
+        parsed = parse_input_filename(csv_path.name)
+        if not parsed:
+            continue
+
+        sector, subsector = parsed
+        key = (sector, subsector)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        # Find associated files
+        stem = csv_path.stem
+
+        # Try new format first
+        if "__" in stem:
+            base = "__".join(stem.split("__")[:2])
+            global_path = input_dir / f"{base}__global_results.json"
+            meta_path = input_dir / f"{base}__metadata.json"
+        else:
+            # Old format
+            base = "_".join(stem.split("_")[:-1]) if "_physical" in stem else stem
+            global_path = None  # Old format might not have separate global_results
+            meta_path = input_dir / f"{base}_metadata.json"
+            if not meta_path.exists():
+                # Try with _physical suffix
+                meta_path = input_dir / f"{stem}_metadata.json"
+
+        # Load metadata to get stats
+        n_regions = 0
+        n_quantiles = 19
+        gamma = None
+        gamma_se = None
+        r_squared = None
+        n_obs = None
+
+        if global_path and global_path.exists():
+            with open(global_path) as f:
+                gr = json.load(f)
+            gamma = gr.get("gamma")
+            gamma_se = gr.get("gamma_se")
+            r_squared = gr.get("r_squared")
+            n_obs = gr.get("n_obs")
+        elif meta_path.exists():
+            with open(meta_path) as f:
+                meta = json.load(f)
+            if "global_results" in meta:
+                gr = meta["global_results"]
+                gamma = gr.get("gamma")
+                gamma_se = gr.get("gamma_se")
+                r_squared = gr.get("r_squared")
+                n_obs = gr.get("n_obs")
+            if "output_stats" in meta:
+                n_regions = meta["output_stats"].get("n_regions", 0)
+                n_quantiles = meta["output_stats"].get("n_gamma_quantiles", 19)
+
+        datasets.append({
+            "sector": sector,
+            "subsector": subsector,
+            "resolution": "ir",  # Default, can be extended
+            "csv_path": csv_path,
+            "global_path": global_path if global_path and global_path.exists() else None,
+            "meta_path": meta_path if meta_path.exists() else None,
+            "gamma": gamma,
+            "gamma_se": gamma_se,
+            "r_squared": r_squared,
+            "n_obs": n_obs,
+            "n_regions": n_regions,
+            "n_quantiles": n_quantiles,
+        })
+
+    return datasets
+
+
+def generate_readme(version: str, datasets: List[dict]) -> str:
+    """Generate README.md content (pure ASCII only, no Unicode)."""
+
+    # Build dataset table
+    rows = []
+    for d in sorted(datasets, key=lambda x: (x["sector"], x["subsector"])):
+        gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"
+        se = f"{d['gamma_se']:.4f}" if d.get("gamma_se") else "--"
+        r2 = f"{d['r_squared']:.3f}" if d.get("r_squared") else "--"
+        regions = f"{d['n_regions']:,}" if d.get("n_regions") else "--"
+        rows.append(
+            f"| {d['sector'].title()} | {d['subsector'].replace('_', ' ').title()} | "
+            f"{d['resolution'].upper()} | {gamma} | {se} | {regions} | {r2} |"
+        )
+
+    dataset_table = "\n".join(rows)
+
+    return f"""# Flexible Damage Function Parameters for Climate Impact Assessment
+
+Version {version}
+
+## Authors
+
+James Rising (jarising@gmail.com)
+Sebastian Cadavid Sanchez (scadavidsanchez@uchicago.edu)
+Climate Impact Lab
+
+## Abstract
+
+This dataset provides econometrically estimated parameters for climate damage
+functions covering multiple economic sectors. The parameters relate temperature
+anomalies to economic impacts while accounting for income-dependent adaptation,
+enabling their use in integrated assessment models and social cost of carbon
+calculations.
+
+The estimation follows a two-stage procedure. First, a global income elasticity
+parameter (gamma) is estimated via fixed-effects regression on binned
+temperature-impact data. Second, region-specific polynomial coefficients are
+estimated conditional on draws from the income elasticity distribution. This
+approach propagates uncertainty from the global estimation through to regional
+parameters.
+
+## Damage Function Specification
+
+The damage function takes the form:
+
+    M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma
+
+where:
+
+- M_it is the impact for region i at time t
+- T_t is global mean temperature anomaly from pre-industrial (degrees C)
+- Y_it is GDP per capita (2020 USD PPP)
+- gamma is the income elasticity of damages
+- alpha_i, beta_i are region-specific polynomial coefficients
+
+The income elasticity gamma is estimated globally using a fixed-effects
+specification that controls for region-by-temperature-bin and year effects.
+Standard errors are clustered two-way by region-temperature-bin and year
+following Cameron, Gelbach, and Miller (2011).
+
+## Data Description
+
+| Sector | Subsector | Resolution | gamma | SE(gamma) | Regions | R^2 |
+|--------|-----------|------------|-------|-----------|---------|-----|
+{dataset_table}
+
+Resolution codes:
+
+- IR = Impact Regions (24,326 globally)
+- Country = national-level aggregation
+
+## File Organization
+
+The archive contains sector-specific subdirectories organized by spatial
+resolution:
+
+    flexdamage-parameters-v{version}/
+    |-- README.md
+    |-- manifest.json
+    |-- shapefiles/
+    |   |-- impact_regions.shp
+    |   |-- impact_regions.shx
+    |   |-- impact_regions.dbf
+    |   |-- impact_regions.prj
+    |-- agriculture/
+    |   |-- README.md
+    |   |-- ir/
+    |       |-- corn/
+    |       |   |-- regional_parameters.csv
+    |       |   |-- global_results.json
+    |       |   |-- metadata.json
+    |       |-- rice/
+    |           |-- ...
+
+## Shapefile
+
+The shapefiles/ directory contains the Impact Regions shapefile for mapping
+parameters to geographic locations. The 'hierid' field matches the 'region'
+column in the parameter CSV files. Load with geopandas:
+
+    import geopandas as gpd
+    gdf = gpd.read_file("shapefiles/impact_regions.shp")
+
+Each subsector directory contains three files:
+
+1. regional_parameters.csv -- Regional polynomial coefficients with 12 columns
+   and 19 rows per region (one per gamma quantile).
+
+2. global_results.json -- Results from income elasticity estimation including
+   point estimate, standard error, R^2, sample size, and 19 quantile values.
+
+3. metadata.json -- Run configuration including estimation settings, constraint
+   specifications, and summary statistics.
+
+## Variable Definitions
+
+Each row contains 12 fields. `region` identifies the location (Impact Region ID or ISO3 code). `gamma` is the income elasticity quantile value for this row (there are 19 rows per region, one per quantile). `alpha` and `beta` are the linear and quadratic temperature coefficients in the polynomial M(T) = alpha * T + beta * T^2. The variance-covariance matrix of (alpha, beta) is given by `sigma11` (variance of alpha), `sigma12` (covariance), and `sigma22` (variance of beta), enabling joint uncertainty sampling. `rho` is the correlation between regional and global polynomial residuals, used to maintain spatial covariance in Monte Carlo draws. `zeta` is the temperature-dependent error scale and `eta` is the residual noise standard deviation -- together they describe the prediction uncertainty that grows with temperature. `rsqr1` measures the polynomial fit quality and `rsqr2` measures the error model fit.
+
+## Usage Notes
+
+For deterministic applications, select the median gamma quantile (row 10 of 19
+for each region). For Monte Carlo simulations, sample across all 19 quantiles
+to propagate income elasticity uncertainty.
+
+The variance-covariance parameters (sigma11, sigma12, sigma22) enable joint
+sampling of alpha and beta for uncertainty quantification.
+
+## License
+
+CC-BY-4.0
+
+## Contact
+
+Climate Impact Lab
+Institution: University of Chicago
+Repository: https://github.com/ClimateImpactLab/flexdamage
+"""
+
+
+def generate_sector_readme(sector: str, datasets: List[dict]) -> str:
+    """Generate sector-specific README.md content (pure ASCII only)."""
+
+    sector_datasets = [d for d in datasets if d["sector"] == sector]
+    if not sector_datasets:
+        return ""
+
+    # Sector-specific configurations
+    sector_configs = {
+        "agriculture": {
+            "units": "log yield impact (dimensionless, relative to baseline)",
+            "outcome": "Log change in crop yield relative to a no-climate-change baseline",
+            "constraint": "beta <= 0 (concavity enforced -- damages accelerate with warming)",
+            "notes": [
+                "Yields are measured in metric tons per hectare",
+                "Impacts are relative to historical climate baseline (1980-2010)",
+                "Negative values indicate yield loss, positive values indicate gain",
+            ],
+        },
+        "mortality": {
+            "units": "deaths per 100,000 population",
+            "outcome": "Change in mortality rate from temperature exposure",
+            "constraint": "None (both heat and cold mortality are modeled)",
+            "notes": [
+                "All-cause mortality by age group",
+                "Accounts for adaptation through income-dependent response",
+            ],
+        },
+        "energy": {
+            "units": "GJ per capita per year",
+            "outcome": "Change in energy consumption from temperature deviation",
+            "constraint": "None",
+            "notes": [
+                "Includes heating and cooling demand",
+                "Based on empirical energy-temperature relationships",
+            ],
+        },
+        "labor": {
+            "units": "hours worked per worker per year",
+            "outcome": "Change in labor productivity from heat exposure",
+            "constraint": "None",
+            "notes": [
+                "High-risk includes outdoor and physically demanding work",
+                "Low-risk includes indoor and climate-controlled work",
+            ],
+        },
+    }
+
+    config = sector_configs.get(sector, {
+        "units": "sector-specific units",
+        "outcome": "Sector-specific outcome measure",
+        "constraint": "See metadata.json for details",
+        "notes": [],
+    })
+
+    # Build subsector table
+    rows = []
+    for d in sorted(sector_datasets, key=lambda x: x["subsector"]):
+        gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"
+        se = f"{d['gamma_se']:.4f}" if d.get("gamma_se") else "--"
+        r2 = f"{d['r_squared']:.3f}" if d.get("r_squared") else "--"
+        regions = f"{d['n_regions']:,}" if d.get("n_regions") else "--"
+        quantiles = d.get("n_quantiles", 19)
+        rows.append(
+            f"| {d['subsector'].replace('_', ' ').title()} | {gamma} | {se} | "
+            f"{regions} | {quantiles} | {r2} |"
+        )
+
+    subsector_table = "\n".join(rows)
+
+    notes_text = "\n".join(f"- {note}" for note in config.get("notes", []))
+    if not notes_text:
+        notes_text = "- See metadata.json for sector-specific details"
+
+    return f"""# {sector.title()} Sector Parameters
+
+## Units
+
+Outcome variable: {config['outcome']}
+
+Units: {config['units']}
+
+## Input Variables
+
+- Temperature (T): Global mean temperature anomaly from pre-industrial
+  (degrees Celsius)
+- Income (Y): GDP per capita (2020 USD PPP)
+
+## Constraint Applied
+
+{config['constraint']}
+
+## Subsectors
+
+| Subsector | gamma | SE(gamma) | Regions | Quantiles | R^2 |
+|-----------|-------|-----------|---------|-----------|-----|
+{subsector_table}
+
+## Notes
+
+{notes_text}
+
+## File Structure
+
+Each subsector directory contains:
+
+- regional_parameters.csv -- 12 columns, 19 rows per region
+- global_results.json -- gamma estimate, SE, R^2, quantiles
+- metadata.json -- run configuration and summary statistics
+
+## Usage Example
+
+    import pandas as pd
+
+    # Load corn parameters
+    df = pd.read_csv("ir/corn/regional_parameters.csv")
+
+    # Filter to median gamma
+    median_gamma = df["gamma"].median()
+    df_med = df[abs(df["gamma"] - median_gamma) < 0.0001]
+
+    # Compute impact for region USA.14.648 at T=3C, Y=$50,000
+    row = df_med[df_med["region"] == "USA.14.648"].iloc[0]
+    T, Y = 3.0, 50000
+    M = (row["alpha"] * T + row["beta"] * T**2) * Y**row["gamma"]
+    print(f"Impact: {{M:.4f}}")
+"""
+
+
+def generate_manifest(version: str, datasets: List[dict], zip_contents: List[dict]) -> dict:
+    """Generate manifest.json."""
+
+    manifest = {
+        "version": version,
+        "flexdamage_version": "1.0.0",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "description": "Flexible damage function parameters for climate impact assessment",
+        "license": "CC-BY-4.0",
+        "datasets": [],
+        "files": [],
+        "statistics": {
+            "total_datasets": len(datasets),
+            "total_files": len(zip_contents),
+            "sectors": list(set(d["sector"] for d in datasets)),
+        },
+    }
+
+    # Add dataset summaries
+    for d in sorted(datasets, key=lambda x: (x["sector"], x["subsector"])):
+        manifest["datasets"].append({
+            "sector": d["sector"],
+            "subsector": d["subsector"],
+            "resolution": d["resolution"],
+            "path": f"{d['sector']}/{d['resolution']}/{d['subsector']}/",
+            "gamma": d.get("gamma"),
+            "gamma_se": d.get("gamma_se"),
+            "r_squared": d.get("r_squared"),
+            "n_obs": d.get("n_obs"),
+            "n_regions": d.get("n_regions"),
+            "n_quantiles": d.get("n_quantiles"),
+        })
+
+    # Add file details
+    for f in zip_contents:
+        manifest["files"].append({
+            "path": f["archive_path"],
+            "size_bytes": f["size"],
+            "sha256": f["sha256"],
+            "sector": f.get("sector"),
+            "subsector": f.get("subsector"),
+            "filetype": f.get("filetype"),
+        })
+
+    return manifest
+
+
+def build_zip(
+    input_dir: Path,
+    version: str,
+    output_dir: Path,
+    datasets: List[dict],
+) -> Tuple[Path, List[dict], str]:
+    """
+    Build the structured ZIP file.
+
+    Returns (zip_path, zip_contents, manifest_json).
+    """
+    zip_name = f"flexdamage-parameters-v{version}.zip"
+    zip_path = output_dir / zip_name
+    base_dir = f"flexdamage-parameters-v{version}"
+
+    zip_contents = []
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Add each dataset
+        for d in datasets:
+            sector = d["sector"]
+            subsector = d["subsector"]
+            resolution = d["resolution"]
+            dir_path = f"{base_dir}/{sector}/{resolution}/{subsector}"
+
+            # Add CSV
+            if d["csv_path"]:
+                archive_path = f"{dir_path}/regional_parameters.csv"
+                content = d["csv_path"].read_bytes()
+                zf.writestr(archive_path, content)
+                zip_contents.append({
+                    "archive_path": archive_path,
+                    "size": len(content),
+                    "sha256": compute_sha256_bytes(content),
+                    "sector": sector,
+                    "subsector": subsector,
+                    "filetype": "regional_parameters",
+                })
+
+            # Add global_results.json
+            if d["global_path"]:
+                archive_path = f"{dir_path}/global_results.json"
+                content = d["global_path"].read_bytes()
+                zf.writestr(archive_path, content)
+                zip_contents.append({
+                    "archive_path": archive_path,
+                    "size": len(content),
+                    "sha256": compute_sha256_bytes(content),
+                    "sector": sector,
+                    "subsector": subsector,
+                    "filetype": "global_results",
+                })
+            elif d["meta_path"]:
+                # Extract global_results from metadata
+                with open(d["meta_path"]) as f:
+                    meta = json.load(f)
+                if "global_results" in meta:
+                    gr_content = json.dumps(meta["global_results"], indent=2).encode()
+                    archive_path = f"{dir_path}/global_results.json"
+                    zf.writestr(archive_path, gr_content)
+                    zip_contents.append({
+                        "archive_path": archive_path,
+                        "size": len(gr_content),
+                        "sha256": compute_sha256_bytes(gr_content),
+                        "sector": sector,
+                        "subsector": subsector,
+                        "filetype": "global_results",
+                    })
+
+            # Add metadata.json
+            if d["meta_path"]:
+                archive_path = f"{dir_path}/metadata.json"
+                content = d["meta_path"].read_bytes()
+                zf.writestr(archive_path, content)
+                zip_contents.append({
+                    "archive_path": archive_path,
+                    "size": len(content),
+                    "sha256": compute_sha256_bytes(content),
+                    "sector": sector,
+                    "subsector": subsector,
+                    "filetype": "metadata",
+                })
+
+        # Add per-sector README files
+        sectors_with_data = set(d["sector"] for d in datasets)
+        for sector in sectors_with_data:
+            sector_readme = generate_sector_readme(sector, datasets)
+            if sector_readme:
+                readme_path = f"{base_dir}/{sector}/README.md"
+                zf.writestr(readme_path, sector_readme)
+                zip_contents.append({
+                    "archive_path": readme_path,
+                    "size": len(sector_readme),
+                    "sha256": compute_sha256_bytes(sector_readme.encode()),
+                    "sector": sector,
+                    "subsector": None,
+                    "filetype": "sector_readme",
+                })
+
+        # Add top-level README to ZIP
+        top_readme = generate_readme(version, datasets)
+        top_readme_path = f"{base_dir}/README.md"
+        zf.writestr(top_readme_path, top_readme)
+        zip_contents.append({
+            "archive_path": top_readme_path,
+            "size": len(top_readme),
+            "sha256": compute_sha256_bytes(top_readme.encode()),
+            "sector": None,
+            "subsector": None,
+            "filetype": "readme",
+        })
+
+        # Create empty placeholder directories for future sectors
+        for sector, config in SECTORS.items():
+            for res in config["resolutions"]:
+                # Add .gitkeep to ensure directory exists in zip
+                placeholder_path = f"{base_dir}/{sector}/{res}/.gitkeep"
+                if not any(c["archive_path"].startswith(f"{base_dir}/{sector}/{res}/")
+                          for c in zip_contents):
+                    zf.writestr(placeholder_path, "")
+
+        # Add Impact Regions shapefile
+        shapefile_added = False
+        if IR_SHAPEFILE.exists():
+            shapefile_dir = IR_SHAPEFILE.parent
+            shapefile_stem = IR_SHAPEFILE.stem
+            shapefile_extensions = [".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx"]
+            for ext in shapefile_extensions:
+                src_file = shapefile_dir / f"{shapefile_stem}{ext}"
+                if src_file.exists():
+                    archive_path = f"{base_dir}/shapefiles/impact_regions{ext}"
+                    content = src_file.read_bytes()
+                    zf.writestr(archive_path, content)
+                    zip_contents.append({
+                        "archive_path": archive_path,
+                        "size": len(content),
+                        "sha256": compute_sha256_bytes(content),
+                        "sector": None,
+                        "subsector": None,
+                        "filetype": "shapefile",
+                    })
+                    shapefile_added = True
+            logger.info(f"Added shapefile ({sum(1 for e in shapefile_extensions if (shapefile_dir / f'{shapefile_stem}{e}').exists())} files)")
+        else:
+            logger.warning(f"Shapefile not found: {IR_SHAPEFILE}")
+
+        # Generate and add manifest.json inside zip
+        manifest = generate_manifest(version, datasets, zip_contents)
+        manifest_json = json.dumps(manifest, indent=2)
+        manifest_path = f"{base_dir}/manifest.json"
+        zf.writestr(manifest_path, manifest_json)
+        zip_contents.append({
+            "archive_path": manifest_path,
+            "size": len(manifest_json),
+            "sha256": compute_sha256_bytes(manifest_json.encode()),
+            "sector": None,
+            "subsector": None,
+            "filetype": "manifest",
+        })
+
+    return zip_path, zip_contents, manifest_json
+
+
+def build_zenodo_metadata(version: str, readme_content: str) -> dict:
+    """Build Zenodo deposit metadata."""
+
+    # Professional description for Zenodo landing page (HTML/LaTeX supported here)
+    description = (
+        "Econometrically estimated parameters for climate damage functions "
+        "relating temperature anomalies to economic impacts across multiple sectors. "
+        "The damage function specification is "
+        "$M_{it} = (\\alpha_i T_t + \\beta_i T_t^2) \\cdot Y_{it}^\\gamma$, "
+        "where regional coefficients capture spatial heterogeneity in climate sensitivity "
+        "and the income elasticity parameter enables income-dependent adaptation. "
+        "Parameters are provided for 24,326 Impact Regions globally,"
+        "with uncertainty quantification via 19 gamma quantiles per region for Monte Carlo simulation. "
+        "Suitable for use in integrated assessment models, social cost of carbon calculations, "
+        "and climate economics research."
+    )
+
+    return {
+        "title": "Flexible Damage Function Parameters for Climate Impact Assessment",
+        "description": description,
+        "upload_type": "dataset",
+        "version": version,
+        "access_right": "open",
+        "license": "cc-by-4.0",
+        "creators": [
+            {"name": "Climate Impact Lab"}
+        ],
+        "keywords": [
+            "climate change",
+            "damage functions",
+            "integrated assessment models",
+            "social cost of carbon",
+            "agriculture",
+            "climate economics",
+            "econometrics",
+        ],
+        "related_identifiers": [],
+        "notes": "",
+    }
+
+
+# Zenodo API functions
+
+def delete_deposit(token: str, api_url: str, deposit_id: int) -> bool:
+    """Delete an existing draft deposit."""
+    response = requests.delete(
+        f"{api_url}/deposit/depositions/{deposit_id}",
+        params={"access_token": token},
+    )
+    if response.status_code == 204:
+        return True
+    elif response.status_code == 404:
+        return False
+    else:
+        response.raise_for_status()
+        return False
+
+
+def create_deposit(token: str, api_url: str, metadata: dict) -> dict:
+    """Create a new deposit on Zenodo."""
+    response = requests.post(
+        f"{api_url}/deposit/depositions",
+        params={"access_token": token},
+        json={"metadata": metadata},
+        headers={"Content-Type": "application/json"},
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def upload_file_to_bucket(token: str, bucket_url: str, filename: str, data: bytes) -> dict:
+    """Upload a file to a deposit bucket."""
+    response = requests.put(
+        f"{bucket_url}/{filename}",
+        params={"access_token": token},
+        data=data,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def upload_file_from_path(token: str, bucket_url: str, file_path: Path, filename: str) -> dict:
+    """Upload a file from disk to a deposit bucket."""
+    with open(file_path, "rb") as f:
+        response = requests.put(
+            f"{bucket_url}/{filename}",
+            params={"access_token": token},
+            data=f,
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def publish_deposit(token: str, api_url: str, deposit_id: int) -> dict:
+    """Publish a deposit."""
+    response = requests.post(
+        f"{api_url}/deposit/depositions/{deposit_id}/actions/publish",
+        params={"access_token": token},
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Upload FlexDamage parameters to Zenodo",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Build ZIP only
+    python scripts/zenodo_upload.py --build \\
+        --input-dir /path/to/parameters --version 1.0.0-alpha
+
+    # Preview upload
+    python scripts/zenodo_upload.py --sandbox --dry-run --version 1.0.0-alpha \\
+        --input-dir /path/to/parameters
+
+    # Upload to sandbox
+    python scripts/zenodo_upload.py --sandbox --draft --version 1.0.0-alpha \\
+        --input-dir /path/to/parameters
+
+    # Publish
+    python scripts/zenodo_upload.py --sandbox --publish
+
+    # Delete draft
+    python scripts/zenodo_upload.py --sandbox --delete 473052
+        """,
+    )
+
+    parser.add_argument("--sandbox", action="store_true",
+                        help="Use Zenodo sandbox for testing")
+    parser.add_argument("--build", action="store_true",
+                        help="Build ZIP file only (no upload)")
+    parser.add_argument("--draft", action="store_true",
+                        help="Create/update draft without publishing")
+    parser.add_argument("--publish", action="store_true",
+                        help="Publish existing draft")
+    parser.add_argument("--delete", type=int, metavar="ID",
+                        help="Delete an existing draft deposit")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview what would be uploaded")
+    parser.add_argument("--version", type=str,
+                        help="Version string (e.g., 1.0.0-alpha)")
+    parser.add_argument("--input-dir", type=str, default="./parameters",
+                        help="Directory containing parameter files")
+    parser.add_argument("--output-dir", type=str, default=".",
+                        help="Directory to write ZIP file")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Verbose logging")
+
+    args = parser.parse_args()
+
+    setup_logging(level=logging.INFO if args.verbose else logging.WARNING)
+    logger.setLevel(logging.INFO)
+
+    # Validate arguments
+    if not any([args.build, args.draft, args.publish, args.delete, args.dry_run]):
+        parser.error("Must specify --build, --draft, --publish, --delete, or --dry-run")
+
+    if (args.build or args.draft or args.dry_run) and not args.version:
+        parser.error("--version required")
+
+    # Handle delete
+    if args.delete:
+        if not HAS_REQUESTS:
+            logger.error("requests library required: pip install requests")
+            sys.exit(1)
+
+        api_url = get_api_url(args.sandbox)
+        token = get_token(args.sandbox)
+
+        logger.info(f"Deleting deposit {args.delete}...")
+        if delete_deposit(token, api_url, args.delete):
+            print(f"Deleted deposit {args.delete}")
+            state = load_state()
+            if state.get("deposit_id") == args.delete:
+                state.pop("deposit_id", None)
+                save_state(state)
+        else:
+            print(f"Deposit {args.delete} not found")
+        return
+
+    # Handle publish
+    if args.publish:
+        if not HAS_REQUESTS:
+            logger.error("requests library required: pip install requests")
+            sys.exit(1)
+
+        state = load_state()
+        if not state.get("deposit_id"):
+            logger.error("No draft to publish. Run with --draft first.")
+            sys.exit(1)
+
+        api_url = get_api_url(args.sandbox)
+        token = get_token(args.sandbox)
+        deposit_id = state["deposit_id"]
+
+        logger.info(f"Publishing deposit {deposit_id}...")
+        result = publish_deposit(token, api_url, deposit_id)
+
+        print("\n" + "=" * 70)
+        print("Published!")
+        print("=" * 70)
+        print(f"  DOI: {result.get('doi')}")
+        print(f"  URL: {result['links']['html']}")
+        print("=" * 70)
+
+        state.pop("deposit_id", None)
+        save_state(state)
+        return
+
+    # For build, draft, dry-run: need input directory
+    input_dir = Path(args.input_dir)
+    if not input_dir.is_dir():
+        logger.error(f"Input directory not found: {input_dir}")
+        sys.exit(1)
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Collect datasets
+    datasets = collect_datasets(input_dir)
+    if not datasets:
+        logger.error(f"No datasets found in {input_dir}")
+        sys.exit(1)
+
+    logger.info(f"Found {len(datasets)} datasets")
+
+    # Generate README
+    readme_content = generate_readme(args.version, datasets)
+
+    # Build ZIP
+    logger.info("Building ZIP file...")
+    zip_path, zip_contents, manifest_json = build_zip(
+        input_dir, args.version, output_dir, datasets
+    )
+    zip_size = zip_path.stat().st_size
+
+    logger.info(f"Created {zip_path} ({format_size(zip_size)})")
+
+    # Build only
+    if args.build:
+        # Also write README and manifest to output dir
+        readme_path = output_dir / "README.md"
+        manifest_path = output_dir / "manifest.json"
+
+        readme_path.write_text(readme_content)
+        manifest_path.write_text(manifest_json)
+
+        print("\n" + "=" * 70)
+        print("Build Complete")
+        print("=" * 70)
+        print(f"  ZIP: {zip_path} ({format_size(zip_size)})")
+        print(f"  README: {readme_path}")
+        print(f"  Manifest: {manifest_path}")
+        print(f"  Datasets: {len(datasets)}")
+        print(f"  Files in ZIP: {len(zip_contents)}")
+        print("=" * 70)
+        return
+
+    # Dry run
+    if args.dry_run:
+        print(f"\nDry run for version {args.version}")
+        print("=" * 80)
+
+        # Datasets table
+        print(f"\nDatasets ({len(datasets)}):\n")
+        print(f"  {'Sector':<12} {'Subsector':<15} {'γ':>8} {'SE':>8} {'R²':>7} {'Regions':>10}")
+        print(f"  {'-'*12} {'-'*15} {'-'*8} {'-'*8} {'-'*7} {'-'*10}")
+        for d in sorted(datasets, key=lambda x: (x["sector"], x["subsector"])):
+            gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"
+            se = f"{d['gamma_se']:.4f}" if d.get("gamma_se") else "--"
+            r2 = f"{d['r_squared']:.3f}" if d.get("r_squared") else "--"
+            regions = f"{d['n_regions']:,}" if d.get("n_regions") else "--"
+            print(f"  {d['sector']:<12} {d['subsector']:<15} {gamma:>8} {se:>8} {r2:>7} {regions:>10}")
+
+        # Upload summary
+        print(f"\nFiles to upload:\n")
+        print(f"  {'File':<50} {'Size':>12}")
+        print(f"  {'-'*50} {'-'*12}")
+        print(f"  {'README.md':<50} {'~15 KB':>12}")
+        print(f"  {'manifest.json':<50} {'~5 KB':>12}")
+        print(f"  {f'flexdamage-parameters-v{args.version}.zip':<50} {format_size(zip_size):>12}")
+        print(f"  {'-'*50} {'-'*12}")
+
+        # ZIP contents
+        print(f"\nZIP contents ({len(zip_contents)} files):\n")
+        for c in sorted(zip_contents, key=lambda x: x["archive_path"])[:20]:
+            print(f"  {c['archive_path']:<60} {format_size(c['size']):>10}")
+        if len(zip_contents) > 20:
+            print(f"  ... and {len(zip_contents) - 20} more files")
+
+        print("\n" + "=" * 80)
+        base = "sandbox.zenodo.org" if args.sandbox else "zenodo.org"
+        print(f"\nWould upload to: https://{base}")
+        print("=" * 80)
+        return
+
+    # Draft upload
+    if args.draft:
+        if not HAS_REQUESTS:
+            logger.error("requests library required: pip install requests")
+            sys.exit(1)
+
+        api_url = get_api_url(args.sandbox)
+        token = get_token(args.sandbox)
+
+        # Create deposit
+        logger.info("Creating Zenodo deposit...")
+        zenodo_metadata = build_zenodo_metadata(args.version, readme_content)
+        deposit = create_deposit(token, api_url, zenodo_metadata)
+
+        deposit_id = deposit["id"]
+        bucket_url = deposit["links"]["bucket"]
+
+        logger.info(f"Deposit ID: {deposit_id}")
+
+        # Upload README
+        logger.info("Uploading README.md...")
+        upload_file_to_bucket(token, bucket_url, "README.md", readme_content.encode())
+
+        # Upload manifest
+        logger.info("Uploading manifest.json...")
+        upload_file_to_bucket(token, bucket_url, "manifest.json", manifest_json.encode())
+
+        # Upload ZIP
+        logger.info(f"Uploading {zip_path.name} ({format_size(zip_size)})...")
+        upload_file_from_path(token, bucket_url, zip_path, zip_path.name)
+
+        # Save state
+        state = load_state()
+        state["deposit_id"] = deposit_id
+        state["sandbox"] = args.sandbox
+        state["version"] = args.version
+        state["uploaded_at"] = datetime.utcnow().isoformat()
+        save_state(state)
+
+        # Print result
+        base_url = "sandbox.zenodo.org" if args.sandbox else "zenodo.org"
+        print("\n" + "=" * 70)
+        print("Draft Created")
+        print("=" * 70)
+        print(f"  Deposit ID: {deposit_id}")
+        print(f"  Version: {args.version}")
+        print(f"  Datasets: {len(datasets)}")
+        print(f"  Review at: https://{base_url}/uploads/{deposit_id}")
+        print(f"\n  To publish:")
+        print(f"    python scripts/zenodo_upload.py {'--sandbox ' if args.sandbox else ''}--publish")
+        print("=" * 70)
+
+
+if __name__ == "__main__":
+    main()

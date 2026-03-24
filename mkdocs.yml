@@ -1,0 +1,77 @@
+site_name: FlexDamage
+site_description: Flexible damage function estimation for climate impact assessment
+site_author: Climate Impact Lab
+site_url: https://climateimpactlab.github.io/flexdamage/
+repo_url: https://github.com/ClimateImpactLab/flexdamage
+repo_name: ClimateImpactLab/flexdamage
+
+use_directory_urls: false
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: white
+    accent: blue
+  font:
+    text: IBM Plex Sans
+    code: IBM Plex Mono
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Methodology: methodology.md
+  - Parameters: parameters.md
+  - Pipeline: pipeline.md
+  - Reports: reports.md
+  - API Reference: api.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            heading_level: 3
+            show_signature_annotations: true
+            separate_signature: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ClimateImpactLab
+  generator: false

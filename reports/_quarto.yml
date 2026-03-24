@@ -1,0 +1,40 @@
+project:
+  type: default
+  output-dir: _output
+
+execute:
+  freeze: auto
+  echo: false
+  warning: false
+
+format:
+  html:
+    theme: cosmo
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: false
+    html-math-method: mathjax
+    include-in-header:
+      text: |
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  pdf:
+    documentclass: article
+    geometry:
+      - margin=1in
+    toc: true
+    number-sections: true
+    colorlinks: true
+  typst:
+    toc: true
+    number-sections: true
+    mainfont: "Libertinus Serif"
+    papersize: us-letter
+    keep-typ: true
+    template-partials:
+      - templates/typst-template.typ
+      - templates/typst-show.typ
+
+metadata-files:
+  - _brand.yml

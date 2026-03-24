@@ -1,0 +1,1317 @@
+---
+title: "Flexible Damage Functions"
+subtitle: "{{< meta params.sector >}} - {{< meta params.subsector >}}"
+author: "James Rising, Sebastian Cadavid Sanchez, Climate Impact Lab"
+date: today
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: false
+    html-math-method: mathjax
+    include-in-header:
+      text: |
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+params:
+  sector: "agriculture"
+  subsector: "corn"
+  results_dir: "/project/cil/gcp/flex_damage_funcs/parameters"
+  source_data: "/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/corn/ir/ir.zarr"
+  version: "1.0.0"
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+```{python}
+#| label: setup
+#| include: false
+
+import json
+import sys
+from pathlib import Path
+import pandas as pd
+import numpy as np
+
+# Add flexdamage to path
+sys.path.insert(0, str(Path.cwd().parent / "src"))
+
+# Parameters
+SECTOR = "{{< meta params.sector >}}"
+SUBSECTOR = "{{< meta params.subsector >}}"
+RESULTS_DIR = Path("{{< meta params.results_dir >}}")
+SOURCE_DATA = Path("{{< meta params.source_data >}}")
+VERSION = "{{< meta params.version >}}"
+
+# Handle Quarto templating
+if SECTOR.startswith("{{"):
+    SECTOR = "agriculture"
+if SUBSECTOR.startswith("{{"):
+    SUBSECTOR = "corn"
+if str(RESULTS_DIR).startswith("{{"):
+    RESULTS_DIR = Path("/project/cil/gcp/flex_damage_funcs/parameters")
+if str(SOURCE_DATA).startswith("{{"):
+    SOURCE_DATA = Path("/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/corn/ir/ir.zarr")
+
+# Find files using v3 naming: sector__subsector__filetype.ext
+base_name = f"{SECTOR}__{SUBSECTOR}"
+csv_path = RESULTS_DIR / f"{base_name}__regional_parameters.csv"
+global_json_path = RESULTS_DIR / f"{base_name}__global_results.json"
+metadata_json_path = RESULTS_DIR / f"{base_name}__metadata.json"
+
+# Load data
+regional_df = pd.DataFrame()
+global_results = {}
+metadata = {}
+
+if csv_path.exists():
+    regional_df = pd.read_csv(csv_path)
+
+if global_json_path.exists():
+    with open(global_json_path) as f:
+        global_results = json.load(f)
+
+if metadata_json_path.exists():
+    with open(metadata_json_path) as f:
+        metadata = json.load(f)
+
+# Filter to median gamma for summary stats
+def filter_median_gamma(df):
+    if "gamma" in df.columns and df["gamma"].nunique() > 1:
+        median_gamma = df["gamma"].median()
+        return df[abs(df["gamma"] - median_gamma) < 0.0001].copy()
+    return df.copy()
+
+df_median = filter_median_gamma(regional_df)
+n_regions = df_median["region"].nunique() if "region" in df_median.columns else len(df_median)
+n_quantiles = regional_df["gamma"].nunique() if "gamma" in regional_df.columns else 1
+```
+
+Flexible damage function parameters for **`{python} SECTOR.title()`** (`{python} SUBSECTOR`) at the Impact Region level.
+
+$$M_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
+
+where $\gamma$ is the income elasticity (fitted globally), $\alpha_i$ is the linear coefficient, and $\beta_i$ is the quadratic coefficient.
+
+```{python}
+#| output: asis
+gamma = global_results.get("gamma", 0)
+gamma_se = global_results.get("gamma_se", 0)
+r_squared = global_results.get("r_squared", 0)
+n_obs = global_results.get("n_obs", 0)
+
+print(f"""
+| Statistic | Value |
+|-----------|-------|
+| Income elasticity ($\\gamma$) | {gamma:.4f} |
+| Standard error | {gamma_se:.2e} |
+| R-squared | {r_squared:.4f} |
+| Observations | {n_obs:,} |
+| Regions | {n_regions:,} |
+| Gamma quantiles | {n_quantiles} |
+""")
+```
+
+---
+
+# Global Estimation
+
+The income elasticity $\gamma$ is estimated using a fixed-effects regression:
+
+$$y_{it} = \gamma \cdot \log(Y_{it}) + \mu_{g(i,T)} + \nu_t + \varepsilon_{it}$$
+
+where $\mu_{g(i,T)}$ are region-by-temperature-bin fixed effects and $\nu_t$ are year fixed effects.
+
+## Gamma Robustness (Sensitivity Analysis)
+
+```{python}
+#| label: tbl-gamma-sensitivity
+#| tbl-cap: "Gamma Estimates Under Different Specifications"
+#| output: asis
+
+if global_results.get("gamma"):
+    gamma = global_results["gamma"]
+    gamma_se = global_results.get("gamma_se", 0)
+    ci_low = gamma - 1.96 * gamma_se
+    ci_high = gamma + 1.96 * gamma_se
+    print(f"""
+| Specification | Gamma | SE | 95% CI |
+|---------------|-------|-----|--------|
+| Baseline | {gamma:.4f} | {gamma_se:.2e} | [{ci_low:.4f}, {ci_high:.4f}] |
+""")
+```
+
+---
+
+# Parameter Distributions
+
+## 8-Panel Summary (doc p.7)
+
+Row 1: gamma, alpha, beta, rsqr1
+Row 2: rho, zeta, eta, rsqr2
+
+```{python}
+#| label: fig-param-dist
+#| fig-cap: "Distribution of Regional Parameters"
+
+# 8-panel parameter distributions (matches R reference code exactly)
+# -----------------------------------------------------------------
+# Gamma panel: sample 100,000 values from N(gamma, SE) then histogram
+#   with 100 bins. This creates a smooth bell curve representing
+#   uncertainty in the global income elasticity estimate.
+# Other 7 panels: use ALL rows from regional_df (462k rows = 19 gamma
+#   quantiles x 24k regions). Histogram with 100 bins.
+# Red dashed = median, blue dotted = mean.
+# Reference: flexdamage-R/src/alphafit.R lines 116-126
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Filter to median gamma for regional parameter histograms (avoid 19x duplication)
+# This gives us ~24,326 rows instead of ~462k
+median_gamma = regional_df["gamma"].median() if "gamma" in regional_df.columns else 0
+df_med = regional_df[abs(regional_df["gamma"] - median_gamma) < 0.0001] if "gamma" in regional_df.columns else regional_df
+print(f"Using median gamma: {median_gamma:.6f}, {len(df_med):,} rows (of {len(regional_df):,} total)")
+
+# Parameters and labels (matching R alphafit.R order)
+params_info = [
+    ("gamma", "gamma"), ("alpha", "alpha"), ("beta", "beta"), ("rsqr1", "R1²"),
+    ("rho", "rho"), ("zeta", "zeta"), ("eta", "eta"), ("rsqr2", "R2²")
+]
+
+fig, axes = plt.subplots(2, 4, figsize=(14, 6))
+axes = axes.flatten()
+
+# Style: gray filled histograms with thin black edges, matching reference image
+HIST_COLOR = '#B0B0B0'  # Gray fill
+EDGE_COLOR = 'black'
+EDGE_WIDTH = 0.5
+MEDIAN_COLOR = 'red'
+MEAN_COLOR = 'blue'
+
+for idx, (col, label) in enumerate(params_info):
+    ax = axes[idx]
+
+    if col == "gamma":
+        # Gamma: sample 100,000 values from N(gamma, SE), then histogram
+        # This matches R: rnorm(100000, gamma.mu, gamma.se)
+        gamma_val = global_results.get("gamma", median_gamma)
+        gamma_se = global_results.get("gamma_se", 0.001)
+
+        # Safety: ensure SE is reasonable
+        if gamma_se <= 0 or gamma_se > 1:
+            gamma_se = 0.01
+            print(f"Warning: gamma_se={global_results.get('gamma_se')} invalid, using 0.01")
+
+        # Draw 100,000 samples from N(gamma, SE)
+        vals = np.random.normal(gamma_val, gamma_se, 100000)
+        ax.hist(vals, bins=100, color=HIST_COLOR, edgecolor=EDGE_COLOR, linewidth=EDGE_WIDTH)
+
+        # Add central estimate line (red dashed)
+        ax.axvline(gamma_val, color=MEDIAN_COLOR, linestyle='--', linewidth=1.2)
+
+    else:
+        # All other parameters: histogram of ALL regional results (not filtered)
+        # This matches R: results$alpha, results$beta, etc.
+        if col in regional_df.columns:
+            vals = regional_df[col].dropna()
+            if len(vals) > 0:
+                ax.hist(vals, bins=100, color=HIST_COLOR, edgecolor=EDGE_COLOR, linewidth=EDGE_WIDTH)
+
+                # Add median (red dashed) and mean (blue dotted) lines
+                med = vals.median()
+                mean_val = vals.mean()
+                ax.axvline(med, color=MEDIAN_COLOR, linestyle='--', linewidth=1.2)
+                ax.axvline(mean_val, color=MEAN_COLOR, linestyle=':', linewidth=1.2)
+
+    ax.set_title(label, fontsize=12, fontweight='medium')
+    ax.tick_params(labelsize=9)
+
+    # Remove top and right spines for cleaner look
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+# Axis labels
+axes[0].set_ylabel("Region count", fontsize=10)
+axes[4].set_ylabel("Region count", fontsize=10)
+
+# Shared x-axis label
+fig.text(0.5, 0.02, "Parameter value", ha='center', fontsize=11)
+
+# Legend annotation
+fig.text(0.98, 0.02, "Red dashed = median, Blue dotted = mean",
+         ha='right', fontsize=9, color='gray')
+
+plt.tight_layout(rect=[0, 0.05, 1, 0.96])
+plt.suptitle(f"Regional Parameter Distributions (n={len(df_med):,} regions at median γ={median_gamma:.4f})",
+             fontsize=12, fontweight='medium', y=0.99)
+plt.show()
+```
+
+## Summary Statistics
+
+```{python}
+#| label: tbl-regional-summary
+#| tbl-cap: "Regional Parameter Summary"
+#| output: asis
+
+if len(df_median) > 0:
+    summary_cols = ["alpha", "beta", "rho", "zeta", "eta", "rsqr1", "rsqr2"]
+    summary_data = []
+
+    for col in summary_cols:
+        if col in df_median.columns:
+            s = df_median[col].dropna()
+            if len(s) > 0:
+                summary_data.append({
+                    "Parameter": col,
+                    "Mean": f"{s.mean():.4g}",
+                    "Median": f"{s.median():.4g}",
+                    "Std": f"{s.std():.4g}",
+                    "Min": f"{s.min():.4g}",
+                    "Max": f"{s.max():.4g}",
+                    "N": f"{len(s):,}",
+                })
+
+    if summary_data:
+        summary_df = pd.DataFrame(summary_data)
+        from IPython.display import Markdown
+        display(Markdown(summary_df.to_markdown(index=False)))
+else:
+    print("*No regional results available*")
+```
+
+---
+
+# Spaghetti Curves (doc p.9)
+
+Regional damage function curves showing M(T) = αT + βT² for sampled regions.
+
+```{python}
+#| label: fig-spaghetti
+#| fig-cap: "Regional Damage Functions"
+
+import plotly.graph_objects as go
+
+# Use median gamma
+median_gamma = regional_df["gamma"].median() if "gamma" in regional_df.columns else 0
+df_plot = regional_df[abs(regional_df["gamma"] - median_gamma) < 0.0001] if "gamma" in regional_df.columns else regional_df
+
+# Sample for performance
+sample = df_plot.sample(min(300, len(df_plot)), random_state=42) if len(df_plot) > 300 else df_plot
+
+T = np.linspace(0, 20, 200)
+fig = go.Figure()
+
+# Add individual curves
+for _, row in sample.iterrows():
+    alpha = row["alpha"] if "alpha" in row.index else 0
+    beta = row["beta"] if "beta" in row.index else 0
+    region = row["region"] if "region" in row.index else "Unknown"
+    rsqr1 = row["rsqr1"] if "rsqr1" in row.index else 0
+
+    M = alpha * T + beta * T**2
+
+    # Compute zero crossing
+    if abs(beta) > 1e-10:
+        T_cross = -alpha / (2 * beta)
+        cross_text = f"{T_cross:.1f}°C" if 0 <= T_cross <= 20 else "Outside [0,20]"
+    else:
+        cross_text = "Linear (no crossing)"
+
+    hover_text = (
+        f"<b>{region}</b><br>"
+        f"α: {alpha:.4f}<br>"
+        f"β: {beta:.6f}<br>"
+        f"R²: {rsqr1:.3f}<br>"
+        f"Zero crossing: {cross_text}<extra></extra>"
+    )
+
+    fig.add_trace(go.Scatter(
+        x=T, y=M,
+        mode="lines",
+        line=dict(color="rgba(31,119,180,0.15)", width=0.5),
+        hovertemplate=hover_text,
+        showlegend=False,
+    ))
+
+# Add median curve
+alpha_med = df_plot["alpha"].median()
+beta_med = df_plot["beta"].median()
+M_med = alpha_med * T + beta_med * T**2
+
+fig.add_trace(go.Scatter(
+    x=T, y=M_med,
+    mode="lines",
+    line=dict(color="darkred", width=3),
+    name=f"Median (α={alpha_med:.4f}, β={beta_med:.6f})",
+))
+
+# Add zero line
+fig.add_hline(y=0, line_dash="dash", line_color="black", line_width=1)
+
+fig.update_layout(
+    xaxis_title="Climatic temperature change (°C)",
+    yaxis_title="Regional damage function M(T)",
+    template="plotly_white",
+    height=500,
+    hovermode="closest",
+    legend=dict(x=0.02, y=0.98),
+)
+fig.show()
+```
+
+---
+
+# Zero Crossings (doc p.9)
+
+The zero crossing (extremum) of the parabola occurs at $T^* = -\alpha / (2\beta)$.
+
+```{python}
+#| label: tbl-zero-crossings
+#| tbl-cap: "Zero Crossing Statistics"
+#| output: asis
+
+if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.columns:
+    n_total = len(df_median)
+
+    # beta = 0 (constrained, no crossing)
+    n_beta_zero = (abs(df_median["beta"]) <= 1e-10).sum()
+
+    # Compute crossings for non-zero beta
+    mask_valid = abs(df_median["beta"]) > 1e-10
+    crossings = -df_median.loc[mask_valid, "alpha"] / (2 * df_median.loc[mask_valid, "beta"])
+
+    n_beyond = (crossings > 20).sum()
+    n_negative = (crossings < 0).sum()
+    n_valid = ((crossings >= 0) & (crossings <= 20)).sum()
+
+    print(f"""
+| Category | Count | Percentage |
+|----------|-------|------------|
+| β = 0 (no crossing) | {n_beta_zero} | {100*n_beta_zero/n_total:.1f}% |
+| T > 20°C (beyond graph) | {n_beyond} | {100*n_beyond/n_total:.1f}% |
+| T < 0°C (negative crossing) | {n_negative} | {100*n_negative/n_total:.1f}% |
+| Valid crossings (0-20°C) | {n_valid} | {100*n_valid/n_total:.1f}% |
+""")
+```
+
+```{python}
+#| label: fig-crossings
+#| fig-cap: "Distribution of Zero Crossing Temperatures"
+
+import plotly.express as px
+
+if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.columns:
+    # Filter to valid crossings
+    mask = abs(df_median["beta"]) > 1e-10
+    df_cross = df_median[mask].copy()
+    df_cross["T_cross"] = -df_cross["alpha"] / (2 * df_cross["beta"])
+
+    # Keep valid range
+    df_valid = df_cross[(df_cross["T_cross"] >= 0) & (df_cross["T_cross"] <= 20)]
+
+    if len(df_valid) > 0:
+        fig = px.histogram(
+            df_valid, x="T_cross", nbins=40,
+            labels={"T_cross": "Temperature for zero crossing (°C)", "count": "Region count"},
+            title=f"Zero Crossing Temperatures (n={len(df_valid)} regions)"
+        )
+        fig.add_vline(x=df_valid["T_cross"].median(), line_dash="dash", line_color="red",
+                      annotation_text=f"Median: {df_valid['T_cross'].median():.1f}°C")
+        fig.update_layout(template="plotly_white")
+        fig.show()
+    else:
+        print("*No valid zero crossings in [0, 20]°C range*")
+```
+
+---
+
+# Slope Analysis (doc p.10)
+
+Maximum slope between 0 and 10°C: $\frac{dM}{dT} = \alpha + 2\beta T$
+
+The maximum occurs at either T=0 or T=10 (endpoints of interval).
+
+```{python}
+#| label: fig-max-slope
+#| fig-cap: "Distribution of Maximum Slopes (0-10°C)"
+
+import plotly.express as px
+
+if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.columns:
+    df_slope = df_median.copy()
+
+    # Slope at T=0: alpha
+    # Slope at T=10: alpha + 20*beta
+    slope_0 = df_slope["alpha"]
+    slope_10 = df_slope["alpha"] + 20 * df_slope["beta"]
+
+    # Max slope (most positive or least negative)
+    df_slope["max_slope"] = np.maximum(slope_0, slope_10)
+
+    # Count positive vs negative
+    n_pos = (df_slope["max_slope"] > 0).sum()
+    n_neg = (df_slope["max_slope"] <= 0).sum()
+    pct_pos = 100 * n_pos / len(df_slope)
+
+    fig = px.histogram(
+        df_slope, x="max_slope", nbins=50,
+        labels={"max_slope": "Maximum slope from 0 to 10°C"},
+        title=f"Maximum Slope Distribution (Positive: {n_pos} [{pct_pos:.1f}%], Negative: {n_neg})"
+    )
+    fig.add_vline(x=0, line_dash="solid", line_color="black", line_width=1)
+    fig.add_vline(x=df_slope["max_slope"].median(), line_dash="dash", line_color="red",
+                  annotation_text=f"Median: {df_slope['max_slope'].median():.4f}")
+    fig.update_layout(template="plotly_white")
+    fig.show()
+```
+
+---
+
+# Convexity Analysis (doc p.10)
+
+For agriculture with $\beta \le 0$ constraint, we expect ~0% convex curves.
+
+```{python}
+#| label: fig-convexity
+#| fig-cap: "Beta Sign Distribution (Convexity)"
+
+import plotly.graph_objects as go
+
+if len(df_median) > 0 and "beta" in df_median.columns:
+    beta_tol = 1e-8
+
+    n_convex = (df_median["beta"] > beta_tol).sum()
+    n_constrained = (abs(df_median["beta"]) <= beta_tol).sum()
+    n_concave = (df_median["beta"] < -beta_tol).sum()
+    n_total = len(df_median)
+
+    # Create horizontal bar chart - cleaner than pie/donut
+    categories = []
+    counts = []
+    colors = []
+    percentages = []
+
+    if n_concave > 0:
+        categories.append("Concave (β < 0)")
+        counts.append(n_concave)
+        colors.append("#27AE60")
+        percentages.append(100 * n_concave / n_total)
+
+    if n_constrained > 0:
+        categories.append("Constrained (β ≈ 0)")
+        counts.append(n_constrained)
+        colors.append("#F39C12")
+        percentages.append(100 * n_constrained / n_total)
+
+    if n_convex > 0:
+        categories.append("Convex (β > 0)")
+        counts.append(n_convex)
+        colors.append("#E74C3C")
+        percentages.append(100 * n_convex / n_total)
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        y=categories,
+        x=counts,
+        orientation="h",
+        marker_color=colors,
+        text=[f"{c:,} ({p:.1f}%)" for c, p in zip(counts, percentages)],
+        textposition="auto",
+        hovertemplate="%{y}: %{x:,} regions (%{text})<extra></extra>",
+    ))
+
+    fig.update_layout(
+        title=f"Curve Shape Distribution (n={n_total:,} impact regions)",
+        xaxis_title="Number of Regions",
+        yaxis_title="",
+        template="plotly_white",
+        height=300,
+        showlegend=False,
+    )
+    fig.show()
+```
+
+```{python}
+#| label: fig-beta-hist
+#| fig-cap: "Beta Distribution"
+
+import plotly.express as px
+
+if len(df_median) > 0 and "beta" in df_median.columns:
+    fig = px.histogram(
+        df_median, x="beta", nbins=50,
+        title="Distribution of β (Quadratic Coefficient)",
+        labels={"beta": "β", "count": "Region count"},
+    )
+    fig.add_vline(x=0, line_dash="dash", line_color="red", line_width=2)
+    fig.update_layout(template="plotly_white", height=350)
+    fig.show()
+```
+
+## Convexity by Country
+
+```{python}
+#| label: tbl-convexity-country
+#| tbl-cap: "Fraction of Convex (beta > 0) Regions by Country (top 20)"
+#| output: asis
+
+if len(df_median) > 0 and "beta" in df_median.columns and "region" in df_median.columns:
+    # Extract country code
+    df_c = df_median.copy()
+    df_c["country"] = df_c["region"].str.split(".").str[0]
+
+    # Compute convexity by country
+    beta_tol = 1e-8
+    country_stats = df_c.groupby("country").agg(
+        n_regions=("region", "count"),
+        n_convex=("beta", lambda x: (x > beta_tol).sum()),
+    ).reset_index()
+    country_stats["frac_convex"] = country_stats["n_convex"] / country_stats["n_regions"]
+
+    # Show top 20 with any convex
+    top = country_stats[country_stats["n_convex"] > 0].sort_values("frac_convex", ascending=False).head(20)
+
+    if len(top) > 0:
+        top["frac_convex"] = top["frac_convex"].apply(lambda x: f"{x:.1%}")
+        from IPython.display import Markdown
+        display(Markdown(top.to_markdown(index=False)))
+    else:
+        print("*No countries with convex (β > 0) regions*")
+```
+
+---
+
+# R-squared Analysis
+
+## Polynomial Fit Quality (rsqr1)
+
+```{python}
+#| label: fig-rsquared
+#| fig-cap: "Regional Fit Quality (R-squared)"
+
+import plotly.express as px
+
+if len(df_median) > 0 and "rsqr1" in df_median.columns:
+    rsqr = df_median["rsqr1"].dropna()
+
+    fig = px.histogram(
+        x=rsqr, nbins=50,
+        labels={"x": "R-squared (polynomial fit)", "count": "Region count"},
+        title=f"R² Distribution (Median: {rsqr.median():.3f})"
+    )
+    fig.add_vline(x=rsqr.median(), line_dash="dash", line_color="red")
+    fig.update_layout(template="plotly_white")
+    fig.show()
+```
+
+## Error Model R-squared (rsqr2) Quantiles (doc p.13)
+
+```{python}
+#| label: tbl-rsqr2-quantiles
+#| tbl-cap: "rsqr2 Quantiles"
+#| output: asis
+
+if len(df_median) > 0 and "rsqr2" in df_median.columns:
+    rsqr2 = df_median["rsqr2"].dropna()
+
+    q0 = rsqr2.quantile(0)
+    q25 = rsqr2.quantile(0.25)
+    q50 = rsqr2.quantile(0.5)
+    q75 = rsqr2.quantile(0.75)
+    q100 = rsqr2.quantile(1.0)
+
+    print(f"""
+| 0% (Min) | 25% | 50% (Median) | 75% | 100% (Max) |
+|----------|-----|--------------|-----|------------|
+| {q0:.4f} | {q25:.4f} | {q50:.4f} | {q75:.4f} | {q100:.4f} |
+""")
+else:
+    print("*rsqr2 column not available*")
+```
+
+---
+
+# Modelled Variance (doc p.14)
+
+Modelled variance statistic: $1 - \frac{\sum_i \eta_i^2}{\sum_i M_i^2}$
+
+```{python}
+#| label: tbl-modelled-variance
+#| tbl-cap: "Modelled Variance Statistics"
+#| output: asis
+
+if len(df_median) > 0 and "eta" in df_median.columns:
+    T_ref = 3.0  # Reference temperature
+
+    # Compute M at reference temperature
+    if "alpha" in df_median.columns and "beta" in df_median.columns:
+        M = df_median["alpha"] * T_ref + df_median["beta"] * T_ref**2
+        eta = df_median["eta"]
+
+        eta_sq_sum = (eta**2).sum()
+        M_sq_sum = (M**2).sum()
+
+        if M_sq_sum > 0:
+            modelled_var = 1 - eta_sq_sum / M_sq_sum
+
+            print(f"""
+| Statistic | Value |
+|-----------|-------|
+| Modelled variance | {modelled_var:.4f} |
+| Sum(η²) | {eta_sq_sum:.4f} |
+| Sum(M²) at T={T_ref}°C | {M_sq_sum:.4f} |
+| N regions | {len(df_median):,} |
+""")
+        else:
+            print("*Cannot compute: Sum(M²) = 0*")
+    else:
+        print("*Missing alpha/beta columns*")
+else:
+    print("*Missing eta column*")
+```
+
+---
+
+# Worst Offenders
+
+```{python}
+#| label: tbl-worst
+#| tbl-cap: "Regions with Highest Residual Noise (η)"
+#| output: asis
+
+if len(df_median) > 0 and "eta" in df_median.columns:
+    worst = df_median.nlargest(10, "eta")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
+    worst["alpha"] = worst["alpha"].apply(lambda x: f"{x:.4f}")
+    worst["beta"] = worst["beta"].apply(lambda x: f"{x:.6f}")
+    worst["eta"] = worst["eta"].apply(lambda x: f"{x:.4f}")
+    worst["rsqr1"] = worst["rsqr1"].apply(lambda x: f"{x:.3f}")
+    worst.columns = ["Region", "α", "β", "η", "R²"]
+
+    from IPython.display import Markdown
+    display(Markdown(worst.to_markdown(index=False)))
+```
+
+```{python}
+#| label: fig-worst-curves
+#| fig-cap: "Damage curves for worst-fitting regions"
+
+import plotly.graph_objects as go
+
+if len(df_median) > 0 and "eta" in df_median.columns:
+    worst = df_median.nlargest(10, "eta")
+    T = np.linspace(-2, 8, 100)
+
+    # Color palette for distinct curves
+    colors = [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+    ]
+
+    fig = go.Figure()
+
+    for i, (_, row) in enumerate(worst.iterrows()):
+        alpha = row["alpha"] if "alpha" in row.index else 0
+        beta = row["beta"] if "beta" in row.index else 0
+        region = str(row["region"]) if "region" in row.index else "Unknown"
+        eta = row["eta"] if "eta" in row.index else 0
+        rsqr1 = row["rsqr1"] if "rsqr1" in row.index else 0
+
+        M = alpha * T + beta * T**2
+
+        hover_text = (
+            f"<b>{region}</b><br>"
+            f"α: {alpha:.4f}<br>"
+            f"β: {beta:.6f}<br>"
+            f"η: {eta:.4f}<br>"
+            f"R²: {rsqr1:.3f}<extra></extra>"
+        )
+
+        fig.add_trace(go.Scatter(
+            x=T, y=M, mode="lines",
+            name=region,
+            line=dict(width=2.5, color=colors[i % len(colors)]),
+            opacity=0.8,
+            hovertemplate=hover_text,
+        ))
+
+    fig.add_hline(y=0, line_dash="dash", line_color="black", line_width=1)
+
+    fig.update_layout(
+        title="Damage Curves for Worst-Fitting Regions (highest η)",
+        xaxis_title="Temperature (°C)",
+        yaxis_title="M(T) = αT + βT²",
+        template="plotly_white",
+        height=500,
+        legend=dict(
+            title="Region (click to toggle)",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=1.02,
+            bgcolor="rgba(255,255,255,0.8)",
+        ),
+        hovermode="closest",
+    )
+    fig.show()
+```
+
+---
+
+# Regional Parameter Maps
+
+Maps of key parameters at the **impact region level**.
+Red = negative (damage increases with T), Blue = positive.
+
+## Alpha (Linear Coefficient)
+
+Alpha ($\alpha$) represents the linear sensitivity to temperature.
+Regions with negative alpha experience damage that increases with the first degree of warming.
+
+```{python}
+#| label: fig-map-alpha
+#| fig-cap: "α (linear coefficient) at impact region level"
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+# Impact region shapefile path
+IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+
+if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
+    # Load shapefile
+    gdf = gpd.read_file(IR_SHAPEFILE)
+
+    # Merge with parameter data
+    gdf_merged = gdf.merge(df_median, left_on="hierid", right_on="region", how="inner")
+
+    if len(gdf_merged) > 0:
+        # Symmetric limits for alpha
+        vmax = np.percentile(np.abs(gdf_merged["alpha"].dropna()), 95)
+
+        fig, ax = plt.subplots(figsize=(14, 7))
+
+        gdf_merged.plot(
+            column="alpha",
+            ax=ax,
+            cmap="RdBu",          # Red = negative, Blue = positive
+            vmin=-vmax,
+            vmax=vmax,
+            legend=True,
+            legend_kwds={"shrink": 0.6, "label": "α (linear coefficient)"},
+            missing_kwds={"color": "lightgray"},
+            linewidth=0,           # No borders between IRs
+        )
+
+        ax.set_title(f"α (Linear Coefficient) at Impact Region Level (n={len(gdf_merged):,} regions)", fontsize=14)
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-60, 85)
+        ax.axis("off")
+
+        # Add annotation
+        ax.text(0.5, -0.02, "Red = negative α (damage increases with T) | Blue = positive α",
+                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
+
+        plt.tight_layout()
+        plt.show()
+    else:
+        print("*No matching regions between shapefile and parameters*")
+elif not IR_SHAPEFILE.exists():
+    print(f"*Shapefile not found: {IR_SHAPEFILE}*")
+else:
+    print("*Missing region column*")
+```
+
+## Beta (Quadratic Coefficient)
+
+Beta ($\beta$) represents the curvature of the damage function.
+For agriculture, $\beta \leq 0$ is enforced (concavity constraint), meaning damages accelerate with warming.
+
+```{python}
+#| label: fig-map-beta
+#| fig-cap: "β (quadratic coefficient) at impact region level"
+
+if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
+    # gdf already loaded above, reuse gdf_merged
+    if len(gdf_merged) > 0 and "beta" in gdf_merged.columns:
+        # Symmetric limits for beta
+        vmax = np.percentile(np.abs(gdf_merged["beta"].dropna()), 95)
+
+        fig, ax = plt.subplots(figsize=(14, 7))
+
+        gdf_merged.plot(
+            column="beta",
+            ax=ax,
+            cmap="RdBu",          # Red = negative (concave), Blue = positive (convex)
+            vmin=-vmax,
+            vmax=vmax,
+            legend=True,
+            legend_kwds={"shrink": 0.6, "label": "β (quadratic coefficient)"},
+            missing_kwds={"color": "lightgray"},
+            linewidth=0,
+        )
+
+        ax.set_title(f"β (Quadratic Coefficient) at Impact Region Level", fontsize=14)
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-60, 85)
+        ax.axis("off")
+
+        # Add annotation
+        ax.text(0.5, -0.02, "Red = negative β (concave, accelerating damage) | Blue = positive β (convex)",
+                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
+
+        plt.tight_layout()
+        plt.show()
+```
+
+## R-squared (Fit Quality)
+
+$R^2$ measures the polynomial fit quality. Higher values indicate that the quadratic form
+captures more of the variance in the data.
+
+```{python}
+#| label: fig-map-rsqr1
+#| fig-cap: "R² (stage 1 fit quality) at impact region level"
+
+if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
+    if len(gdf_merged) > 0 and "rsqr1" in gdf_merged.columns:
+        fig, ax = plt.subplots(figsize=(14, 7))
+
+        gdf_merged.plot(
+            column="rsqr1",
+            ax=ax,
+            cmap="YlGnBu",        # Sequential: low (yellow) to high (blue)
+            vmin=0,
+            vmax=1,
+            legend=True,
+            legend_kwds={"shrink": 0.6, "label": "R² (stage 1)"},
+            missing_kwds={"color": "lightgray"},
+            linewidth=0,
+        )
+
+        ax.set_title(f"R² (Stage 1 Fit Quality) at Impact Region Level", fontsize=14)
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-60, 85)
+        ax.axis("off")
+
+        # Add annotation
+        median_rsqr = gdf_merged["rsqr1"].median()
+        ax.text(0.5, -0.02, f"Higher R² = better fit | Median R² = {median_rsqr:.3f}",
+                transform=ax.transAxes, ha="center", fontsize=10, style="italic")
+
+        plt.tight_layout()
+        plt.show()
+```
+
+---
+
+# F2: Flex vs Raw Comparison
+
+Comparison of flexible damage function predictions against raw simulation means.
+
+For a given scenario (RCP × SSP × year period), we compute:
+
+- **Flex predicted**: $(\alpha \cdot \bar{T} + \beta \cdot \bar{T}^2) \cdot \bar{Y}^\gamma$
+- **Raw actual**: mean of `log_yield_impact` across years in the period
+
+where $\bar{T}$ and $\bar{Y}$ are scenario-specific averages per region.
+
+```{python}
+#| label: setup-f2
+#| include: false
+
+import xarray as xr
+import matplotlib.pyplot as plt
+import numpy as np
+import geopandas as gpd
+import plotly.graph_objects as go
+from pathlib import Path
+from matplotlib.colors import LinearSegmentedColormap
+import os
+
+# Impact region shapefile
+IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+
+# Year windows (focus on end of century)
+YEAR_WINDOWS = {
+    "2080-2099": (2080, 2099),
+    "2060-2079": (2060, 2079),
+}
+
+# Create output directory for downloadable maps
+os.makedirs("_output/maps", exist_ok=True)
+
+# Load shapefile once
+gdf_base = None
+if IR_SHAPEFILE.exists():
+    gdf_base = gpd.read_file(IR_SHAPEFILE)
+    print(f"Loaded shapefile with {len(gdf_base)} regions")
+```
+
+```{python}
+#| label: load-raw-data-f2
+#| include: false
+
+df_raw = None
+rcps, ssps, models_list = [], [], []
+region_col, temp_col, y_col, gdp_col = None, None, None, None
+n_models = 0
+
+if SOURCE_DATA.exists():
+    ds = xr.open_zarr(SOURCE_DATA)
+    df_raw = ds.to_dataframe().reset_index()
+
+    rcps = sorted(df_raw["rcp"].dropna().unique()) if "rcp" in df_raw.columns else []
+    ssps = sorted(df_raw["ssp"].dropna().unique()) if "ssp" in df_raw.columns else []
+    models_list = sorted(df_raw["model"].dropna().unique()) if "model" in df_raw.columns else []
+    n_models = len(models_list)
+
+    region_col = "region" if "region" in df_raw.columns else "hierid" if "hierid" in df_raw.columns else None
+    temp_col = "temperature_anomaly" if "temperature_anomaly" in df_raw.columns else "temperature" if "temperature" in df_raw.columns else None
+    y_col = "log_yield_impact" if "log_yield_impact" in df_raw.columns else "y" if "y" in df_raw.columns else None
+    gdp_col = "gdppc" if "gdppc" in df_raw.columns else None
+
+    print(f"Loaded {len(df_raw):,} rows | RCPs: {rcps} | SSPs: {ssps} | Models: {n_models}")
+```
+
+```{python}
+#| label: f2-scenario-maps
+#| output: asis
+#| results: asis
+
+if df_raw is not None and region_col and temp_col and y_col and len(df_median) > 0 and gdf_base is not None:
+    periods = sorted(YEAR_WINDOWS.keys(), reverse=True)
+
+    # Note about model aggregation
+    if n_models > 1:
+        print(f"*Results averaged across {n_models} climate models.*\n")
+
+    print("::: {.panel-tabset}\n")
+
+    for period in periods:
+        y_start, y_end = YEAR_WINDOWS[period]
+        print(f"## {period}\n")
+        print("::: {.panel-tabset}\n")
+
+        for rcp in rcps:
+            print(f"## {rcp}\n")
+            print("::: {.panel-tabset}\n")
+
+            for ssp in ssps:
+                print(f"## {ssp}\n")
+
+                # Filter data for this scenario
+                mask = (
+                    (df_raw["year"] >= y_start) &
+                    (df_raw["year"] <= y_end) &
+                    (df_raw["rcp"] == rcp) &
+                    (df_raw["ssp"] == ssp)
+                )
+                df_scenario = df_raw[mask]
+
+                if len(df_scenario) < 100:
+                    print("*No data for this scenario.*\n")
+                    continue
+
+                # Aggregate by region (mean across models and years)
+                agg_cols = {temp_col: "mean", y_col: "mean"}
+                if gdp_col:
+                    agg_cols[gdp_col] = "mean"
+
+                agg = df_scenario.groupby(region_col).agg(agg_cols).reset_index()
+                agg.columns = [region_col, "T_mean", "raw_y"] + (["Y_mean"] if gdp_col else [])
+
+                # Merge with parameters
+                merged = agg.merge(
+                    df_median[["region", "alpha", "beta", "gamma"]],
+                    left_on=region_col, right_on="region", how="inner"
+                )
+
+                if len(merged) < 100:
+                    print("*Insufficient region matches.*\n")
+                    continue
+
+                # Compute flex prediction
+                if "Y_mean" in merged.columns:
+                    merged["flex"] = (merged["alpha"] * merged["T_mean"] + merged["beta"] * merged["T_mean"]**2) * np.power(merged["Y_mean"], merged["gamma"])
+                else:
+                    merged["flex"] = merged["alpha"] * merged["T_mean"] + merged["beta"] * merged["T_mean"]**2
+
+                merged["residual"] = merged["flex"] - merged["raw_y"]
+                merged["abs_residual"] = merged["residual"].abs()
+                merged["sign_match"] = np.sign(merged["flex"]) == np.sign(merged["raw_y"])
+                merged = merged[np.isfinite(merged["flex"]) & np.isfinite(merged["raw_y"])]
+
+                if len(merged) == 0:
+                    print("*No valid predictions.*\n")
+                    continue
+
+                # Statistics
+                corr = merged["flex"].corr(merged["raw_y"])
+                rmse = np.sqrt((merged["residual"]**2).mean())
+                sign_pct = 100 * merged["sign_match"].mean()
+
+                print(f"**Correlation:** {corr:.4f} | **RMSE:** {rmse:.6f} | **Sign agreement:** {sign_pct:.1f}%\n")
+
+                # Merge with shapefile
+                gdf_scenario = gdf_base.merge(
+                    merged[["region", "flex", "raw_y", "residual", "sign_match", "T_mean"]],
+                    left_on="hierid", right_on="region", how="inner"
+                )
+
+                if len(gdf_scenario) == 0:
+                    print("*No shapefile matches.*\n")
+                    continue
+
+                # Symmetric limits
+                vmax_vals = np.percentile(np.abs(np.concatenate([
+                    gdf_scenario["flex"].dropna().values,
+                    gdf_scenario["raw_y"].dropna().values
+                ])), 95)
+                vmax_resid = np.percentile(gdf_scenario["residual"].abs().dropna(), 95)
+
+                # ===== 4 FULL-WIDTH VERTICAL MAPS =====
+
+                # Map 1: Flex Prediction
+                fig, ax = plt.subplots(figsize=(14, 7))
+                gdf_scenario.plot(
+                    column="flex", ax=ax, cmap="RdBu",
+                    vmin=-vmax_vals, vmax=vmax_vals,
+                    legend=True, legend_kwds={"shrink": 0.6, "label": "Flex prediction"},
+                    linewidth=0, missing_kwds={"color": "lightgray"}
+                )
+                ax.set_title(f"Flex Prediction ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_xlim(-180, 180)
+                ax.set_ylim(-60, 85)
+                ax.axis("off")
+                plt.tight_layout()
+                fname1 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_flex.png"
+                fig.savefig(f"_output/maps/{fname1}", dpi=150, bbox_inches="tight")
+                plt.show()
+                plt.close()
+
+                # Map 2: Raw Simulation Mean
+                fig, ax = plt.subplots(figsize=(14, 7))
+                gdf_scenario.plot(
+                    column="raw_y", ax=ax, cmap="RdBu",
+                    vmin=-vmax_vals, vmax=vmax_vals,
+                    legend=True, legend_kwds={"shrink": 0.6, "label": "Raw simulation mean"},
+                    linewidth=0, missing_kwds={"color": "lightgray"}
+                )
+                ax.set_title(f"Raw Simulation Mean ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_xlim(-180, 180)
+                ax.set_ylim(-60, 85)
+                ax.axis("off")
+                plt.tight_layout()
+                fname2 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_raw.png"
+                fig.savefig(f"_output/maps/{fname2}", dpi=150, bbox_inches="tight")
+                plt.show()
+                plt.close()
+
+                # Map 3: Difference (Flex - Raw)
+                fig, ax = plt.subplots(figsize=(14, 7))
+                gdf_scenario.plot(
+                    column="residual", ax=ax, cmap="RdBu",
+                    vmin=-vmax_resid, vmax=vmax_resid,
+                    legend=True, legend_kwds={"shrink": 0.6, "label": "Difference (Flex - Raw)"},
+                    linewidth=0, missing_kwds={"color": "lightgray"}
+                )
+                ax.set_title(f"Difference: Flex - Raw ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_xlim(-180, 180)
+                ax.set_ylim(-60, 85)
+                ax.axis("off")
+                plt.tight_layout()
+                fname3 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_diff.png"
+                fig.savefig(f"_output/maps/{fname3}", dpi=150, bbox_inches="tight")
+                plt.show()
+                plt.close()
+
+                # Map 4: Sign Agreement
+                gdf_scenario["sign_val"] = np.where(
+                    gdf_scenario["sign_match"],
+                    gdf_scenario["residual"].abs(),
+                    -gdf_scenario["residual"].abs()
+                )
+                cmap_sign = LinearSegmentedColormap.from_list("sign", ["#d73027", "#ffffff", "#1a9850"])
+
+                fig, ax = plt.subplots(figsize=(14, 7))
+                gdf_scenario.plot(
+                    column="sign_val", ax=ax, cmap=cmap_sign,
+                    vmin=-vmax_resid, vmax=vmax_resid,
+                    legend=True, legend_kwds={"shrink": 0.6, "label": "Sign agreement"},
+                    linewidth=0, missing_kwds={"color": "lightgray"}
+                )
+                ax.set_title(f"Sign Agreement ({sign_pct:.1f}% match)", fontsize=14)
+                ax.set_xlim(-180, 180)
+                ax.set_ylim(-60, 85)
+                ax.axis("off")
+                ax.text(0.5, -0.02, "Green = sign match | Red = sign mismatch | Intensity = |difference|",
+                        transform=ax.transAxes, ha="center", fontsize=10, style="italic")
+                plt.tight_layout()
+                fname4 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_sign.png"
+                fig.savefig(f"_output/maps/{fname4}", dpi=150, bbox_inches="tight")
+                plt.show()
+                plt.close()
+
+                print(f"\n**Downloads:** [Flex](_output/maps/{fname1}) | [Raw](_output/maps/{fname2}) | [Diff](_output/maps/{fname3}) | [Sign](_output/maps/{fname4})\n")
+
+                # Scatter plot
+                fig_scatter = go.Figure()
+                lims = [min(merged["raw_y"].min(), merged["flex"].min()),
+                        max(merged["raw_y"].max(), merged["flex"].max())]
+
+                fig_scatter.add_trace(go.Scatter(
+                    x=merged["raw_y"], y=merged["flex"],
+                    mode="markers",
+                    marker=dict(size=4, opacity=0.5, color="steelblue"),
+                    hovertemplate="Region: %{text}<br>Raw: %{x:.4f}<br>Flex: %{y:.4f}<extra></extra>",
+                    text=merged["region"],
+                    name="Regions",
+                ))
+                fig_scatter.add_trace(go.Scatter(
+                    x=lims, y=lims,
+                    mode="lines",
+                    line=dict(color="red", dash="dash", width=2),
+                    showlegend=False,
+                ))
+                fig_scatter.update_layout(
+                    title=f"Flex vs Raw (r={corr:.4f})",
+                    xaxis_title="Raw Simulation Mean",
+                    yaxis_title="Flex Prediction",
+                    template="plotly_white",
+                    height=450,
+                    hovermode="closest",
+                )
+                fig_scatter.show()
+
+                # Worst 10 predictions table
+                worst = merged.nlargest(10, "abs_residual")[
+                    ["region", "T_mean", "raw_y", "flex", "residual"]
+                ].copy()
+                worst["T_mean"] = worst["T_mean"].apply(lambda x: f"{x:.2f}")
+                worst["raw_y"] = worst["raw_y"].apply(lambda x: f"{x:.4f}")
+                worst["flex"] = worst["flex"].apply(lambda x: f"{x:.4f}")
+                worst["residual"] = worst["residual"].apply(lambda x: f"{x:.4f}")
+                worst.columns = ["Region", "T̄ (°C)", "Raw Mean", "Flex Pred", "Residual"]
+
+                print("\n**Worst 10 Predictions:**\n")
+                print(worst.to_markdown(index=False))
+                print("\n")
+
+            print(":::\n")  # close SSP tabset
+        print(":::\n")  # close RCP tabset
+    print(":::\n")  # close period tabset
+
+else:
+    print("*Source data not available or missing required columns.*")
+```
+
+## Scenario Summary
+
+```{python}
+#| label: tbl-scenario-summary
+#| tbl-cap: "Fit statistics across all scenarios"
+#| output: asis
+
+# Recompute summary from the data already processed
+if df_raw is not None and region_col and temp_col and y_col and len(df_median) > 0:
+    rows = []
+    for period, (y_start, y_end) in YEAR_WINDOWS.items():
+        for rcp in rcps:
+            for ssp in ssps:
+                mask = (
+                    (df_raw["year"] >= y_start) &
+                    (df_raw["year"] <= y_end) &
+                    (df_raw["rcp"] == rcp) &
+                    (df_raw["ssp"] == ssp)
+                )
+                df_s = df_raw[mask]
+                if len(df_s) < 100:
+                    continue
+
+                agg_cols = {temp_col: "mean", y_col: "mean"}
+                if gdp_col:
+                    agg_cols[gdp_col] = "mean"
+                agg = df_s.groupby(region_col).agg(agg_cols).reset_index()
+                agg.columns = [region_col, "T_mean", "raw_y"] + (["Y_mean"] if gdp_col else [])
+
+                m = agg.merge(df_median[["region", "alpha", "beta", "gamma"]], left_on=region_col, right_on="region", how="inner")
+                if len(m) < 100:
+                    continue
+
+                if "Y_mean" in m.columns:
+                    m["flex"] = (m["alpha"] * m["T_mean"] + m["beta"] * m["T_mean"]**2) * np.power(m["Y_mean"], m["gamma"])
+                else:
+                    m["flex"] = m["alpha"] * m["T_mean"] + m["beta"] * m["T_mean"]**2
+
+                m["residual"] = m["flex"] - m["raw_y"]
+                m["sign_match"] = np.sign(m["flex"]) == np.sign(m["raw_y"])
+                m = m[np.isfinite(m["flex"]) & np.isfinite(m["raw_y"])]
+
+                if len(m) > 0:
+                    rows.append({
+                        "Period": period,
+                        "RCP": rcp,
+                        "SSP": ssp,
+                        "N Regions": f"{len(m):,}",
+                        "Correlation": f"{m['flex'].corr(m['raw_y']):.4f}",
+                        "RMSE": f"{np.sqrt((m['residual']**2).mean()):.6f}",
+                        "Sign Match %": f"{100*m['sign_match'].mean():.1f}%",
+                    })
+
+    if rows:
+        summary_df = pd.DataFrame(rows)
+        summary_df = summary_df.sort_values(["Period", "RCP", "SSP"], ascending=[False, True, True])
+        from IPython.display import Markdown
+        display(Markdown(summary_df.to_markdown(index=False)))
+    else:
+        print("*No scenarios computed.*")
+else:
+    print("*No scenario data available*")
+```
+
+---
+
+# Data Reference
+
+## File Locations
+
+```{python}
+#| output: asis
+
+print(f"""
+| Item | Path |
+|------|------|
+| Regional CSV | `{csv_path}` |
+| Global JSON | `{global_json_path}` |
+| Metadata JSON | `{metadata_json_path}` |
+""")
+```
+
+## Column Definitions
+
+| Column | Description |
+|--------|-------------|
+| `region` | Region identifier (hierarchical code, first 3 chars = country ISO3) |
+| `gamma` | Income elasticity quantile value |
+| `alpha` | Linear temperature coefficient |
+| `beta` | Quadratic temperature coefficient |
+| `sigma11` | Var(alpha) |
+| `sigma12` | Cov(alpha, beta) |
+| `sigma22` | Var(beta) |
+| `rho` | Correlation with global residual process |
+| `zeta` | Temperature-dependent heteroskedasticity |
+| `eta` | Residual standard deviation |
+| `rsqr1` | R-squared of polynomial fit |
+| `rsqr2` | R-squared of error model |
+
+---
+
+*Report generated with FlexDamage v`{python} VERSION`*

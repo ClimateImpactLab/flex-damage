@@ -1,0 +1,41 @@
+# Environment
+.env
+.env.*
+.zenodo.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Data (too large for git)
+*.parquet
+*.zarr
+data/
+
+# Build artifacts
+site/
+reports/_output/
+
+# Logs
+*.log
+
+# Quarto installation (local)
+quarto-*/
+quarto-*.tar.gz
+
+# Zenodo ZIP
+flexdamage-parameters-*.zip
+manifest.json
+
+# OS
+.DS_Store
+Thumbs.db
+reports/.quarto/
+reports/_freeze/
+reports/_output/
+reports/sector_vignette.typ
+reports/sector_vignette_files/

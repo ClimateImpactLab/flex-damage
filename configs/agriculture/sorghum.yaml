@@ -1,0 +1,59 @@
+# =============================================================================
+# FlexDamage v3 - Agriculture Sorghum Configuration
+# =============================================================================
+
+run:
+  name: agriculture_sorghum_ir
+  description: "Sorghum yield response estimation - Impact Region resolution"
+
+sector:
+  name: agriculture
+  subsector: sorghum
+  units: physical
+  adaptation: na
+
+data:
+  source: /project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/sorghum/ir/ir.zarr
+  format: zarr
+
+  columns:
+    y: log_yield_impact
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 10
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: max
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/agriculture/sorghum
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 200

@@ -1,0 +1,61 @@
+# =============================================================================
+# FlexDamage v3 - Toy Agriculture Configuration (for testing)
+# =============================================================================
+# Small subset of data for quick testing and debugging.
+
+run:
+  name: toy_agriculture
+  description: "Toy agriculture config for testing (small subset)"
+
+sector:
+  name: agriculture
+  subsector: corn
+  units: physical
+  adaptation: na
+
+data:
+  # Point to a small test dataset or mock data
+  source: /project/cil/home_dirs/scadavidsanchez/projects/ag-flex-damage-functions/flexdamage-v3/data/mock/agriculture_toy.parquet
+  format: parquet
+
+  columns:
+    y: log_yield_impact
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 5  # Fewer quantiles for faster testing
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 5  # Lower threshold for toy data
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: max
+      value: 0
+
+output:
+  results_dir: /project/cil/home_dirs/scadavidsanchez/projects/ag-flex-damage-functions/flexdamage-v3/results/toy_agriculture
+  parameters_dir: /project/cil/home_dirs/scadavidsanchez/projects/ag-flex-damage-functions/flexdamage-v3/parameters
+
+execution:
+  workers: 1  # Single worker for debugging
+  memory_limit_gb: 8

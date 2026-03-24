@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flexdamage"
+version = "1.0.0"
+description = "Flexible Climate Damage Function Estimation"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "James Rising", email = "jarising@gmail.com"},
+    {name = "Sebastian Cadavid Sanchez", email = "scadavidsanchez@uchicago.edu"},
+    {name = "Climate Impact Lab"},
+]
+keywords = [
+    "climate",
+    "damage functions",
+    "economics",
+    "estimation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "duckdb>=1.0.0",
+    "linearmodels>=6.0.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "pyarrow>=14.0.0",
+    "pydantic>=2.0.0",
+    "pyfixest>=0.25.0",
+    "pyyaml>=6.0",
+    "scipy>=1.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+zarr = [
+    "xarray>=2023.1.0",
+    "zarr>=2.16.0",
+]
+diagnostics = [
+    "matplotlib>=3.7.0",
+    "plotly>=5.15.0",
+    "geopandas>=0.14.0",
+]
+reports = [
+    "quarto>=1.4.0",
+]
+all = [
+    "flexdamage[dev,zarr,diagnostics,reports]",
+]
+
+[project.scripts]
+flexdamage = "flexdamage.pipeline:run_pipeline"
+
+[project.urls]
+Homepage = "https://github.com/ClimateImpactLab/flexdamage"
+Documentation = "https://github.com/ClimateImpactLab/flexdamage"
+Repository = "https://github.com/ClimateImpactLab/flexdamage"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flexdamage"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
