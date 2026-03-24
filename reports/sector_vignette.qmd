@@ -889,12 +889,10 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
 
 Comparison of flexible damage function predictions against raw simulation means.
 
-For a given scenario (RCP × SSP × year period), we compute:
+For each scenario (RCP × SSP × Model), we compute at year 2098:
 
-- **Flex predicted**: $(\alpha \cdot \bar{T} + \beta \cdot \bar{T}^2) \cdot \bar{Y}^\gamma$
-- **Raw actual**: mean of `log_yield_impact` across years in the period
-
-where $\bar{T}$ and $\bar{Y}$ are scenario-specific averages per region.
+- **Flex predicted**: $(\alpha \cdot T + \beta \cdot T^2) \cdot Y^\gamma$
+- **Raw actual**: `log_yield_impact` value
 
 ```{python}
 #| label: setup-f2
@@ -912,11 +910,6 @@ import os
 # Impact region shapefile
 IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
 
-# Year windows (focus on end of century only)
-YEAR_WINDOWS = {
-    "2080-2099": (2080, 2099),
-}
-
 # Create output directory for downloadable maps
 os.makedirs("_output/maps", exist_ok=True)
 
@@ -924,8 +917,8 @@ os.makedirs("_output/maps", exist_ok=True)
 gdf_base = None
 if IR_SHAPEFILE.exists():
     gdf_base = gpd.read_file(IR_SHAPEFILE)
-    gdf_base["geometry"] = gdf_base["geometry"].simplify(0.1)
-    print(f"Loaded and simplified shapefile with {len(gdf_base)} regions")
+    gdf_base["geometry"] = gdf_base["geometry"].simplify(0.15)
+    print(f"Loaded shapefile with {len(gdf_base)} regions")
 ```
 
 ```{python}
@@ -935,35 +928,28 @@ if IR_SHAPEFILE.exists():
 df_raw = None
 rcps, ssps, models_list = [], [], []
 region_col, temp_col, y_col, gdp_col = None, None, None, None
-n_models = 0
+target_year = None
 
 if SOURCE_DATA.exists():
     ds = xr.open_zarr(SOURCE_DATA)
     df_raw = ds.to_dataframe().reset_index()
 
+    # Find max year (likely 2098)
+    if "year" in df_raw.columns:
+        target_year = int(df_raw["year"].max())
+        print(f"Using year: {target_year}")
+
     rcps = sorted(df_raw["rcp"].dropna().unique()) if "rcp" in df_raw.columns else []
     ssps = sorted(df_raw["ssp"].dropna().unique()) if "ssp" in df_raw.columns else []
     models_list = sorted(df_raw["model"].dropna().unique()) if "model" in df_raw.columns else []
-    n_models = len(models_list)
-
-    # Check for IAM column as well
-    iam_col = None
-    iams_list = []
-    for col in ["iam", "IAM", "model_iam"]:
-        if col in df_raw.columns:
-            iam_col = col
-            iams_list = sorted(df_raw[col].dropna().unique())
-            break
 
     region_col = "region" if "region" in df_raw.columns else "hierid" if "hierid" in df_raw.columns else None
     temp_col = "temperature_anomaly" if "temperature_anomaly" in df_raw.columns else "temperature" if "temperature" in df_raw.columns else None
     y_col = "log_yield_impact" if "log_yield_impact" in df_raw.columns else "y" if "y" in df_raw.columns else None
     gdp_col = "gdppc" if "gdppc" in df_raw.columns else None
 
-    print(f"**Source data columns:** {list(df_raw.columns)}")
-    print(f"Loaded {len(df_raw):,} rows | RCPs: {rcps} | SSPs: {ssps} | Models: {models_list}")
-    if iam_col:
-        print(f"IAM column '{iam_col}': {iams_list}")
+    print(f"RCPs: {rcps} | SSPs: {ssps} | Models: {models_list}")
+    print(f"Columns: region={region_col}, temp={temp_col}, y={y_col}, gdp={gdp_col}")
 ```
 
 ```{python}
@@ -971,42 +957,41 @@ if SOURCE_DATA.exists():
 #| output: asis
 #| results: asis
 
-if df_raw is not None and region_col and temp_col and y_col and len(df_median) > 0 and gdf_base is not None:
-    periods = sorted(YEAR_WINDOWS.keys(), reverse=True)
+if df_raw is not None and region_col and temp_col and y_col and target_year and len(df_median) > 0 and gdf_base is not None:
 
-    # Note about model aggregation
-    if n_models > 1:
-        print(f"*Results averaged across {n_models} climate models.*\n")
+    # Filter to target year only
+    df_year = df_raw[df_raw["year"] == target_year].copy()
+    print(f"**Year {target_year}**: {len(df_year):,} rows\n")
+
+    # Track all scenario stats for summary table
+    all_stats = []
 
     print("::: {.panel-tabset}\n")
 
-    for period in periods:
-        y_start, y_end = YEAR_WINDOWS[period]
-        print(f"## {period}\n")
+    for rcp in rcps:
+        print(f"## {rcp}\n")
         print("::: {.panel-tabset}\n")
 
-        # Show ALL available scenarios
-        for rcp in rcps:
-            print(f"## {rcp}\n")
+        for ssp in ssps:
+            print(f"## {ssp}\n")
             print("::: {.panel-tabset}\n")
 
-            for ssp in ssps:
-                print(f"## {ssp}\n")
+            for model in models_list:
+                print(f"## {model}\n")
 
-                # Filter data for this scenario
+                # Filter data for this exact scenario
                 mask = (
-                    (df_raw["year"] >= y_start) &
-                    (df_raw["year"] <= y_end) &
-                    (df_raw["rcp"] == rcp) &
-                    (df_raw["ssp"] == ssp)
+                    (df_year["rcp"] == rcp) &
+                    (df_year["ssp"] == ssp) &
+                    (df_year["model"] == model)
                 )
-                df_scenario = df_raw[mask]
+                df_scenario = df_year[mask]
 
-                if len(df_scenario) < 100:
+                if len(df_scenario) < 50:
                     print("*No data for this scenario.*\n")
                     continue
 
-                # Aggregate by region (mean across models and years)
+                # Get values per region (no aggregation needed - single year/model)
                 agg_cols = {temp_col: "mean", y_col: "mean"}
                 if gdp_col:
                     agg_cols[gdp_col] = "mean"
@@ -1020,7 +1005,7 @@ if df_raw is not None and region_col and temp_col and y_col and len(df_median) >
                     left_on=region_col, right_on="region", how="inner"
                 )
 
-                if len(merged) < 100:
+                if len(merged) < 50:
                     print("*Insufficient region matches.*\n")
                     continue
 
@@ -1044,6 +1029,12 @@ if df_raw is not None and region_col and temp_col and y_col and len(df_median) >
                 rmse = np.sqrt((merged["residual"]**2).mean())
                 sign_pct = 100 * merged["sign_match"].mean()
 
+                # Store for summary
+                all_stats.append({
+                    "RCP": rcp, "SSP": ssp, "Model": model,
+                    "N": len(merged), "Corr": corr, "RMSE": rmse, "Sign%": sign_pct
+                })
+
                 print(f"**Correlation:** {corr:.4f} | **RMSE:** {rmse:.6f} | **Sign agreement:** {sign_pct:.1f}%\n")
 
                 # Merge with shapefile
@@ -1063,59 +1054,54 @@ if df_raw is not None and region_col and temp_col and y_col and len(df_median) >
                 ])), 95)
                 vmax_resid = np.percentile(gdf_scenario["residual"].abs().dropna(), 95)
 
-                # ===== 4 FULL-WIDTH VERTICAL MAPS =====
+                # ===== 4 MAPS (compact for file size) =====
+                scenario_tag = f"{rcp}_{ssp}_{model}"
 
                 # Map 1: Flex Prediction
-                fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
                 gdf_scenario.plot(
                     column="flex", ax=ax, cmap="RdBu",
                     vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.6, "label": "Flex prediction"},
+                    legend=True, legend_kwds={"shrink": 0.5},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Flex Prediction ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_title(f"Flex Prediction", fontsize=11)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
-                fname1 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_flex.png"
-                fig.savefig(f"_output/maps/{fname1}", dpi=72, bbox_inches="tight")
                 plt.show()
                 plt.close()
 
-                # Map 2: Raw Simulation Mean
-                fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+                # Map 2: Raw Simulation
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
                 gdf_scenario.plot(
                     column="raw_y", ax=ax, cmap="RdBu",
                     vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.6, "label": "Raw simulation mean"},
+                    legend=True, legend_kwds={"shrink": 0.5},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Raw Simulation Mean ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_title(f"Raw Simulation", fontsize=11)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
-                fname2 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_raw.png"
-                fig.savefig(f"_output/maps/{fname2}", dpi=72, bbox_inches="tight")
                 plt.show()
                 plt.close()
 
                 # Map 3: Difference (Flex - Raw)
-                fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
                 gdf_scenario.plot(
                     column="residual", ax=ax, cmap="RdBu",
                     vmin=-vmax_resid, vmax=vmax_resid,
-                    legend=True, legend_kwds={"shrink": 0.6, "label": "Difference (Flex - Raw)"},
+                    legend=True, legend_kwds={"shrink": 0.5},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Difference: Flex - Raw ({rcp}/{ssp}/{period})", fontsize=14)
+                ax.set_title(f"Difference (Flex - Raw)", fontsize=11)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
                 plt.tight_layout()
-                fname3 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_diff.png"
-                fig.savefig(f"_output/maps/{fname3}", dpi=72, bbox_inches="tight")
                 plt.show()
                 plt.close()
 
@@ -1127,55 +1113,36 @@ if df_raw is not None and region_col and temp_col and y_col and len(df_median) >
                 )
                 cmap_sign = LinearSegmentedColormap.from_list("sign", ["#d73027", "#ffffff", "#1a9850"])
 
-                fig, ax = plt.subplots(figsize=(10, 5), dpi=72)
+                fig, ax = plt.subplots(figsize=(8, 4), dpi=48)
                 gdf_scenario.plot(
                     column="sign_val", ax=ax, cmap=cmap_sign,
                     vmin=-vmax_resid, vmax=vmax_resid,
-                    legend=True, legend_kwds={"shrink": 0.6, "label": "Sign agreement"},
+                    legend=True, legend_kwds={"shrink": 0.5},
                     linewidth=0, missing_kwds={"color": "lightgray"}
                 )
-                ax.set_title(f"Sign Agreement ({sign_pct:.1f}% match)", fontsize=14)
+                ax.set_title(f"Sign Agreement ({sign_pct:.1f}%)", fontsize=11)
                 ax.set_xlim(-180, 180)
                 ax.set_ylim(-60, 85)
                 ax.axis("off")
-                ax.text(0.5, -0.02, "Green = sign match | Red = sign mismatch | Intensity = |difference|",
-                        transform=ax.transAxes, ha="center", fontsize=10, style="italic")
                 plt.tight_layout()
-                fname4 = f"f2_{rcp}_{ssp}_{period.replace('-','_')}_sign.png"
-                fig.savefig(f"_output/maps/{fname4}", dpi=72, bbox_inches="tight")
                 plt.show()
                 plt.close()
 
-                print(f"\n**Downloads:** [Flex](_output/maps/{fname1}) | [Raw](_output/maps/{fname2}) | [Diff](_output/maps/{fname3}) | [Sign](_output/maps/{fname4})\n")
-
-                # Scatter plot
-                fig_scatter = go.Figure()
+                # Scatter plot (static matplotlib for smaller file)
+                fig, ax = plt.subplots(figsize=(6, 5), dpi=48)
+                ax.scatter(merged["raw_y"], merged["flex"], s=8, alpha=0.5, c="steelblue")
                 lims = [min(merged["raw_y"].min(), merged["flex"].min()),
                         max(merged["raw_y"].max(), merged["flex"].max())]
-
-                fig_scatter.add_trace(go.Scatter(
-                    x=merged["raw_y"], y=merged["flex"],
-                    mode="markers",
-                    marker=dict(size=4, opacity=0.5, color="steelblue"),
-                    hovertemplate="Region: %{text}<br>Raw: %{x:.4f}<br>Flex: %{y:.4f}<extra></extra>",
-                    text=merged["region"],
-                    name="Regions",
-                ))
-                fig_scatter.add_trace(go.Scatter(
-                    x=lims, y=lims,
-                    mode="lines",
-                    line=dict(color="red", dash="dash", width=2),
-                    showlegend=False,
-                ))
-                fig_scatter.update_layout(
-                    title=f"Flex vs Raw (r={corr:.4f})",
-                    xaxis_title="Raw Simulation Mean",
-                    yaxis_title="Flex Prediction",
-                    template="plotly_white",
-                    height=450,
-                    hovermode="closest",
-                )
-                fig_scatter.show()
+                ax.plot(lims, lims, "r--", linewidth=1.5)
+                ax.set_xlabel("Raw Simulation", fontsize=10)
+                ax.set_ylabel("Flex Prediction", fontsize=10)
+                ax.set_title(f"r = {corr:.4f}", fontsize=11)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.tick_params(labelsize=9)
+                plt.tight_layout()
+                plt.show()
+                plt.close()
 
                 # Worst 10 predictions table
                 worst = merged.nlargest(10, "abs_residual")[
@@ -1185,15 +1152,15 @@ if df_raw is not None and region_col and temp_col and y_col and len(df_median) >
                 worst["raw_y"] = worst["raw_y"].apply(lambda x: f"{x:.4f}")
                 worst["flex"] = worst["flex"].apply(lambda x: f"{x:.4f}")
                 worst["residual"] = worst["residual"].apply(lambda x: f"{x:.4f}")
-                worst.columns = ["Region", "T̄ (°C)", "Raw Mean", "Flex Pred", "Residual"]
+                worst.columns = ["Region", "T (°C)", "Raw", "Flex", "Residual"]
 
                 print("\n**Worst 10 Predictions:**\n")
                 print(worst.to_markdown(index=False))
                 print("\n")
 
-            print(":::\n")  # close SSP tabset
-        print(":::\n")  # close RCP tabset
-    print(":::\n")  # close period tabset
+            print(":::\n")  # close Model tabset
+        print(":::\n")  # close SSP tabset
+    print(":::\n")  # close RCP tabset
 
 else:
     print("*Source data not available or missing required columns.*")
@@ -1203,62 +1170,18 @@ else:
 
 ```{python}
 #| label: tbl-scenario-summary
-#| tbl-cap: "Fit statistics across all scenarios"
+#| tbl-cap: "Fit statistics across all 12 scenarios"
 #| output: asis
 
-# Recompute summary from the data already processed
-if df_raw is not None and region_col and temp_col and y_col and len(df_median) > 0:
-    rows = []
-    for period, (y_start, y_end) in YEAR_WINDOWS.items():
-        for rcp in rcps:
-            for ssp in ssps:
-                mask = (
-                    (df_raw["year"] >= y_start) &
-                    (df_raw["year"] <= y_end) &
-                    (df_raw["rcp"] == rcp) &
-                    (df_raw["ssp"] == ssp)
-                )
-                df_s = df_raw[mask]
-                if len(df_s) < 100:
-                    continue
-
-                agg_cols = {temp_col: "mean", y_col: "mean"}
-                if gdp_col:
-                    agg_cols[gdp_col] = "mean"
-                agg = df_s.groupby(region_col).agg(agg_cols).reset_index()
-                agg.columns = [region_col, "T_mean", "raw_y"] + (["Y_mean"] if gdp_col else [])
-
-                m = agg.merge(df_median[["region", "alpha", "beta", "gamma"]], left_on=region_col, right_on="region", how="inner")
-                if len(m) < 100:
-                    continue
-
-                if "Y_mean" in m.columns:
-                    m["flex"] = (m["alpha"] * m["T_mean"] + m["beta"] * m["T_mean"]**2) * np.power(m["Y_mean"], m["gamma"])
-                else:
-                    m["flex"] = m["alpha"] * m["T_mean"] + m["beta"] * m["T_mean"]**2
-
-                m["residual"] = m["flex"] - m["raw_y"]
-                m["sign_match"] = np.sign(m["flex"]) == np.sign(m["raw_y"])
-                m = m[np.isfinite(m["flex"]) & np.isfinite(m["raw_y"])]
-
-                if len(m) > 0:
-                    rows.append({
-                        "Period": period,
-                        "RCP": rcp,
-                        "SSP": ssp,
-                        "N Regions": f"{len(m):,}",
-                        "Correlation": f"{m['flex'].corr(m['raw_y']):.4f}",
-                        "RMSE": f"{np.sqrt((m['residual']**2).mean()):.6f}",
-                        "Sign Match %": f"{100*m['sign_match'].mean():.1f}%",
-                    })
-
-    if rows:
-        summary_df = pd.DataFrame(rows)
-        summary_df = summary_df.sort_values(["Period", "RCP", "SSP"], ascending=[False, True, True])
-        from IPython.display import Markdown
-        display(Markdown(summary_df.to_markdown(index=False)))
-    else:
-        print("*No scenarios computed.*")
+if 'all_stats' in dir() and all_stats:
+    summary_df = pd.DataFrame(all_stats)
+    summary_df["N"] = summary_df["N"].apply(lambda x: f"{x:,}")
+    summary_df["Corr"] = summary_df["Corr"].apply(lambda x: f"{x:.4f}")
+    summary_df["RMSE"] = summary_df["RMSE"].apply(lambda x: f"{x:.6f}")
+    summary_df["Sign%"] = summary_df["Sign%"].apply(lambda x: f"{x:.1f}%")
+    summary_df = summary_df.sort_values(["RCP", "SSP", "Model"])
+    from IPython.display import Markdown
+    display(Markdown(summary_df.to_markdown(index=False)))
 else:
     print("*No scenario data available*")
 ```
