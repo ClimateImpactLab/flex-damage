@@ -22,8 +22,7 @@ Usage:
     # Generate all agriculture reports
     python scripts/generate_report.py --all-agriculture
 
-    # Deploy to docs/ for GitHub Pages
-    python scripts/generate_report.py --sector agriculture --subsector corn --deploy
+Reports are hosted separately at https://c1587s.github.io/flex-damage-reports/
 """
 
 import argparse
@@ -33,7 +32,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -166,114 +164,6 @@ def render_quarto(
     return None
 
 
-def deploy_to_docs(
-    output_dir: Path,
-    docs_dir: Path,
-    sector: str,
-    subsector: str,
-):
-    """
-    Deploy generated reports to docs/ for GitHub Pages hosting.
-
-    Copies HTML reports and updates index.html.
-    """
-    docs_dir.mkdir(parents=True, exist_ok=True)
-
-    # Find HTML report
-    html_name = f"{sector}_{subsector}_report.html"
-    html_path = output_dir / html_name
-
-    if not html_path.exists():
-        logger.warning(f"HTML report not found: {html_path}")
-        return False
-
-    # Copy to docs/
-    dest_path = docs_dir / html_name
-    shutil.copy2(html_path, dest_path)
-    logger.info(f"Deployed: {dest_path}")
-
-    # Update index.html
-    update_docs_index(docs_dir)
-
-    return True
-
-
-def update_docs_index(docs_dir: Path):
-    """
-    Update docs/index.html with links to all available reports.
-    """
-    # Find all HTML reports
-    reports = {}
-    for html_file in docs_dir.glob("*_report.html"):
-        # Parse sector_subsector_report.html
-        parts = html_file.stem.replace("_report", "").split("_")
-        if len(parts) >= 2:
-            sector = parts[0]
-            subsector = "_".join(parts[1:])
-
-            if sector not in reports:
-                reports[sector] = []
-            reports[sector].append({
-                "subsector": subsector,
-                "filename": html_file.name,
-            })
-
-    # Generate index.html
-    html_content = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlexDamage Parameter Reports</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            line-height: 1.6;
-        }
-        h1 { color: #1A5276; border-bottom: 2px solid #2E86C1; padding-bottom: 0.5rem; }
-        h2 { color: #2E86C1; margin-top: 2rem; }
-        ul { list-style: none; padding: 0; }
-        li { margin: 0.5rem 0; }
-        a {
-            color: #2E86C1;
-            text-decoration: none;
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-        a:hover { background-color: #EBF5FB; }
-        .meta { color: #666; font-size: 0.9rem; margin-top: 3rem; }
-    </style>
-</head>
-<body>
-    <h1>FlexDamage Parameter Reports</h1>
-    <p>Flexible damage function parameters estimated at the Impact Region level.</p>
-"""
-
-    for sector in sorted(reports.keys()):
-        html_content += f"\n    <h2>{sector.title()}</h2>\n    <ul>\n"
-        for report in sorted(reports[sector], key=lambda x: x["subsector"]):
-            subsector = report["subsector"]
-            filename = report["filename"]
-            html_content += f'        <li><a href="{filename}">{subsector.title()}</a></li>\n'
-        html_content += "    </ul>\n"
-
-    html_content += """
-    <p class="meta">
-        Generated with <a href="https://github.com/ClimateImpactLab/flex-damage">FlexDamage</a>
-    </p>
-</body>
-</html>
-"""
-
-    index_path = docs_dir / "index.html"
-    index_path.write_text(html_content)
-    logger.info(f"Updated: {index_path}")
-
-
 def generate_single_report(
     sector: str,
     subsector: str,
@@ -282,8 +172,6 @@ def generate_single_report(
     template: Path,
     formats: list,
     version: str,
-    deploy: bool = False,
-    docs_dir: Optional[Path] = None,
 ):
     """Generate report for a single sector/subsector combination."""
 
@@ -325,10 +213,6 @@ def generate_single_report(
 
         if result:
             generated.append(result)
-
-    # Deploy if requested
-    if deploy and docs_dir and any(str(p).endswith(".html") for p in generated):
-        deploy_to_docs(output_dir, docs_dir, sector, subsector)
 
     return generated
 
@@ -391,17 +275,6 @@ def main():
         action="store_true",
         help="Generate reports for all agriculture subsectors",
     )
-    parser.add_argument(
-        "--deploy",
-        action="store_true",
-        help="Deploy HTML reports to docs/ for GitHub Pages",
-    )
-    parser.add_argument(
-        "--docs-dir",
-        type=Path,
-        default=None,
-        help="Documentation directory for deployment (default: docs/)",
-    )
 
     args = parser.parse_args()
 
@@ -412,7 +285,6 @@ def main():
     project_root = Path(__file__).parent.parent
     reports_dir = project_root / "reports"
     template = args.template or reports_dir / "sector_vignette.qmd"
-    docs_dir = args.docs_dir or project_root / "docs"
 
     if not template.exists():
         logger.error(f"Template not found: {template}")
@@ -460,8 +332,6 @@ def main():
             template=template,
             formats=formats,
             version=args.version,
-            deploy=args.deploy,
-            docs_dir=docs_dir,
         )
         all_generated.extend(generated)
 
@@ -476,10 +346,7 @@ def main():
         for p in all_generated:
             logger.info(f"  {p}")
         logger.info("=" * 60)
-
-        if args.deploy:
-            logger.info(f"\nReports deployed to: {docs_dir}")
-            logger.info(f"Index page: {docs_dir / 'index.html'}")
+        logger.info("\nReports are hosted at: https://c1587s.github.io/flex-damage-reports/")
     else:
         logger.error("No reports generated")
         sys.exit(1)

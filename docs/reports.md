@@ -95,3 +95,14 @@ python scripts/generate_report.py --sector agriculture --subsector corn \
 
 Reports are self-contained HTML files. Each report covers one
 sector/subsector combination.
+
+## Available reports
+
+Reports are hosted separately at [c1587s.github.io/flex-damage-reports](https://c1587s.github.io/flex-damage-reports/).
+
+### Agriculture (Impact Regions)
+
+- [Corn](https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html){target="_blank"}
+
+These open in a new tab as self-contained HTML files with interactive
+plots, maps, and scenario comparisons.
