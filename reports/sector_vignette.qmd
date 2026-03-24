@@ -1,6 +1,5 @@
 ---
 title: "Flexible Damage Functions"
-subtitle: "{{< meta params.sector >}} - {{< meta params.subsector >}}"
 author: "James Rising, Sebastian Cadavid Sanchez, Climate Impact Lab"
 date: today
 format:
@@ -14,12 +13,6 @@ format:
     include-in-header:
       text: |
         <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-params:
-  sector: "agriculture"
-  subsector: "corn"
-  results_dir: "/project/cil/gcp/flex_damage_funcs/parameters"
-  source_data: "/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/corn/ir/ir.zarr"
-  version: "1.0.0"
 execute:
   echo: false
   warning: false
@@ -39,28 +32,34 @@ import numpy as np
 # Add flexdamage to path
 sys.path.insert(0, str(Path.cwd().parent / "src"))
 
-# Parameters
-SECTOR = "{{< meta params.sector >}}"
-SUBSECTOR = "{{< meta params.subsector >}}"
-RESULTS_DIR = Path("{{< meta params.results_dir >}}")
-SOURCE_DATA = Path("{{< meta params.source_data >}}")
-VERSION = "{{< meta params.version >}}"
-
-# Handle Quarto templating
-if SECTOR.startswith("{{"):
+# Read config from external JSON file (written by render script)
+# This avoids Quarto param caching issues entirely
+config_path = Path("_current_report.json")
+if config_path.exists():
+    with open(config_path) as f:
+        report_config = json.load(f)
+    SECTOR = report_config["sector"]
+    SUBSECTOR = report_config["subsector"]
+    csv_path = Path(report_config["params_csv"])
+    global_json_path = Path(report_config["global_json"])
+    SOURCE_DATA = Path(report_config.get("source_data", ""))
+    VERSION = report_config.get("version", "1.0.0")
+    metadata_json_path = csv_path.parent / f"{SECTOR}__{SUBSECTOR}__metadata.json"
+else:
+    # Fallback defaults (for local testing only)
     SECTOR = "agriculture"
-if SUBSECTOR.startswith("{{"):
     SUBSECTOR = "corn"
-if str(RESULTS_DIR).startswith("{{"):
-    RESULTS_DIR = Path("/project/cil/gcp/flex_damage_funcs/parameters")
-if str(SOURCE_DATA).startswith("{{"):
+    csv_path = Path("/project/cil/gcp/flex_damage_funcs/parameters/agriculture__corn__regional_parameters.csv")
+    global_json_path = Path("/project/cil/gcp/flex_damage_funcs/parameters/agriculture__corn__global_results.json")
+    metadata_json_path = Path("/project/cil/gcp/flex_damage_funcs/parameters/agriculture__corn__metadata.json")
     SOURCE_DATA = Path("/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/corn/ir/ir.zarr")
+    VERSION = "1.0.0"
 
-# Find files using v3 naming: sector__subsector__filetype.ext
-base_name = f"{SECTOR}__{SUBSECTOR}"
-csv_path = RESULTS_DIR / f"{base_name}__regional_parameters.csv"
-global_json_path = RESULTS_DIR / f"{base_name}__global_results.json"
-metadata_json_path = RESULTS_DIR / f"{base_name}__metadata.json"
+print(f"=== Report Config ===")
+print(f"Sector: {SECTOR}")
+print(f"Subsector: {SUBSECTOR}")
+print(f"CSV: {csv_path}")
+print(f"Source: {SOURCE_DATA}")
 
 # Load data
 regional_df = pd.DataFrame()
@@ -69,6 +68,9 @@ metadata = {}
 
 if csv_path.exists():
     regional_df = pd.read_csv(csv_path)
+    print(f"Loaded {len(regional_df):,} rows from {csv_path.name}")
+else:
+    print(f"WARNING: CSV not found: {csv_path}")
 
 if global_json_path.exists():
     with open(global_json_path) as f:
@@ -88,6 +90,13 @@ def filter_median_gamma(df):
 df_median = filter_median_gamma(regional_df)
 n_regions = df_median["region"].nunique() if "region" in df_median.columns else len(df_median)
 n_quantiles = regional_df["gamma"].nunique() if "gamma" in regional_df.columns else 1
+```
+
+```{python}
+#| output: asis
+# Dynamic title based on actual data loaded
+from IPython.display import display, Markdown
+display(Markdown(f"## {SECTOR.title()}: {SUBSECTOR.replace('_', ' ').title()}"))
 ```
 
 Flexible damage function parameters for **`{python} SECTOR.title()`** (`{python} SUBSECTOR`) at the Impact Region level.

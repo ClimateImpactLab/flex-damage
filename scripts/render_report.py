@@ -2,12 +2,8 @@
 """
 Render a report for a specific sector/subsector.
 
-This script works around Quarto's unreliable -P parameter injection by:
-1. Reading sector_vignette.qmd as a template
-2. Replacing the params defaults with actual values
-3. Writing a temporary .qmd file
-4. Calling quarto render on that temp file
-5. Copying output to the right place
+This script writes a JSON config file that the .qmd reads at runtime,
+completely bypassing Quarto's broken parameter caching.
 
 Usage:
     python scripts/render_report.py \
@@ -19,7 +15,7 @@ Usage:
         --output /path/to/output.html
 """
 import argparse
-import re
+import json
 import shutil
 import subprocess
 import sys
@@ -37,58 +33,49 @@ def main():
     parser.add_argument("--version", default="1.0.0", help="Version string")
     args = parser.parse_args()
 
-    template_dir = Path(__file__).parent.parent / "reports"
-    template = template_dir / "sector_vignette.qmd"
+    reports_dir = Path(__file__).parent.parent / "reports"
+    template = reports_dir / "sector_vignette.qmd"
+    config_file = reports_dir / "_current_report.json"
 
     if not template.exists():
         print(f"ERROR: Template not found: {template}")
         sys.exit(1)
 
-    # Read template
-    content = template.read_text()
-
-    # Replace params in the YAML front matter
-    # Match the params block and replace values
-    def replace_param(content, param_name, new_value):
-        # Match:   param_name: "old_value" or param_name: "/path/to/something"
-        pattern = rf'({param_name}:\s*)"[^"]*"'
-        replacement = rf'\1"{new_value}"'
-        return re.sub(pattern, replacement, content)
-
-    content = replace_param(content, "sector", args.sector)
-    content = replace_param(content, "subsector", args.subsector)
-    content = replace_param(content, "results_dir", str(Path(args.params_csv).parent))
-    content = replace_param(content, "source_data", args.source_data)
-    content = replace_param(content, "version", args.version)
-
-    # Also need to update the params_csv and global_json references in the setup block
-    # These are constructed from results_dir in the template, so updating results_dir should work
-    # But let's also add explicit paths for safety
-
-    # Write temp .qmd in the reports directory (so _quarto.yml applies)
-    temp_qmd = template_dir / f"_render_{args.sector}_{args.subsector}.qmd"
-    temp_qmd.write_text(content)
+    # Write config JSON that the .qmd will read
+    config = {
+        "sector": args.sector,
+        "subsector": args.subsector,
+        "params_csv": str(args.params_csv),
+        "global_json": str(args.global_json),
+        "source_data": str(args.source_data) if args.source_data else "",
+        "version": args.version,
+    }
 
     print(f"Rendering {args.sector}/{args.subsector}...")
     print(f"  Params CSV: {args.params_csv}")
     print(f"  Global JSON: {args.global_json}")
     print(f"  Source data: {args.source_data or '(none)'}")
 
+    # Write config file
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=2)
+    print(f"  Config written to: {config_file}")
+
     try:
-        # Clear cache to ensure fresh render
-        for d in ["_freeze", ".quarto"]:
-            p = template_dir / d
+        # Aggressively clear ALL caches
+        for d in ["_freeze", ".quarto", "_output/.jupyter_cache"]:
+            p = reports_dir / d
             if p.exists():
                 shutil.rmtree(p)
+                print(f"  Cleared cache: {d}")
 
-        # Also clear any jupyter cache
-        jupyter_cache = template_dir / "_output" / ".jupyter_cache"
-        if jupyter_cache.exists():
-            shutil.rmtree(jupyter_cache)
+        # Also clear any ipynb checkpoints
+        for checkpoint in reports_dir.glob("**/.ipynb_checkpoints"):
+            shutil.rmtree(checkpoint)
 
         # Render
         cmd = [
-            "quarto", "render", str(temp_qmd),
+            "quarto", "render", str(template),
             "--execute",
             "--to", "html",
             "--embed-resources",
@@ -98,7 +85,7 @@ def main():
             cmd,
             capture_output=True,
             text=True,
-            cwd=str(template_dir),
+            cwd=str(reports_dir),
         )
 
         if result.returncode != 0:
@@ -107,23 +94,20 @@ def main():
             sys.exit(1)
 
         # Find rendered output
-        rendered_name = temp_qmd.stem + ".html"
-        rendered = template_dir / "_output" / rendered_name
-
+        rendered = reports_dir / "_output" / "sector_vignette.html"
         if not rendered.exists():
             # Check if it's directly in reports dir
-            rendered = template_dir / rendered_name
+            rendered = reports_dir / "sector_vignette.html"
             if not rendered.exists():
                 print(f"ERROR: Rendered file not found")
-                print(f"  Looked for: {template_dir / '_output' / rendered_name}")
-                print(f"  And: {template_dir / rendered_name}")
+                print(f"  Looked for: {reports_dir / '_output' / 'sector_vignette.html'}")
                 sys.exit(1)
 
         # Determine output path
         if args.output:
             output_path = Path(args.output)
         else:
-            output_path = template_dir / "_output" / f"{args.sector}_{args.subsector}_ir.html"
+            output_path = reports_dir / "_output" / f"{args.sector}_{args.subsector}_ir.html"
 
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,14 +118,10 @@ def main():
         size_mb = output_path.stat().st_size / 1e6
         print(f"Output: {output_path} ({size_mb:.1f}MB)")
 
-        # Clean up rendered file if different from output
-        if rendered != output_path and rendered.exists():
-            rendered.unlink()
-
     finally:
-        # Clean up temp .qmd
-        if temp_qmd.exists():
-            temp_qmd.unlink()
+        # Clean up config file
+        if config_file.exists():
+            config_file.unlink()
 
 
 if __name__ == "__main__":
