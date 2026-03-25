@@ -116,14 +116,14 @@ def main():
             # Validate output
             if validate_v3_output(output_path):
                 standardized.append(output_path)
-                logger.info(f"  ✓ {output_path.name}")
+                logger.info(f"  [ok] {output_path.name}")
             else:
                 errors.append((result["path"], "Validation failed"))
-                logger.error(f"  ✗ {result['path']}: validation failed")
+                logger.error(f"  [fail] {result['path']}: validation failed")
 
         except Exception as e:
             errors.append((result["path"], str(e)))
-            logger.error(f"  ✗ {result['path']}: {e}")
+            logger.error(f"  [fail] {result['path']}: {e}")
 
     # Step 3: Build manifest
     logger.info("Step 3: Building manifest...")

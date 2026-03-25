@@ -5,7 +5,7 @@ Pydantic models for YAML configuration with validation.
 Key changes from v2:
 - scenario_columns: List[str] replaces separate rcp/ssp
 - income_is_log: bool indicates if income is pre-logged
-- No conditional column handling — standardize.py handles all that
+- No conditional column handling; standardize.py handles all that
 """
 
 from pathlib import Path

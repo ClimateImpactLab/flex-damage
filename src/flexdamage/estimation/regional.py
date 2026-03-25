@@ -1,17 +1,17 @@
 """
-Regional polynomial estimation: Fit α, β for all regions at a specific gamma.
+Regional polynomial estimation: Fit alpha, beta for all regions at a specific gamma.
 
-VECTORIZED — no Python loop over regions. One SQL GROUP BY produces sufficient
-statistics, then numpy does vectorized 3×3 matrix inversions.
+Vectorized, no Python loop over regions. One SQL GROUP BY produces sufficient
+statistics, then numpy does vectorized 3x3 matrix inversions.
 
 Following the R reference (alphafit.R):
     y_norm = y * exp(-gamma * log_income)
-    y_norm = intercept + alpha*T + beta*T² + residual
+    y_norm = intercept + alpha*T + beta*T^2 + residual
 
-IMPORTANT: All SQL uses ONLY the standard columns from 'standardized' VIEW:
+All SQL uses only the standard columns from 'standardized' view:
 region, year, y, T, log_income, w, sdev, scenario, y_sign
 
-No conditional column handling — standardize.py guarantees the schema.
+No conditional column handling; standardize.py guarantees the schema.
 """
 
 import logging
@@ -74,9 +74,8 @@ def fit_regional_polynomials(
 
     # Step 1: Compute sufficient statistics per region
     # y_norm = y * exp(-gamma * log_income)  [numerically stable form]
-    # We need: n, sum(T), sum(T²), sum(T³), sum(T⁴), sum(y_norm), sum(T*y_norm), sum(T²*y_norm), sum(y_norm²)
-    #
-    # FIXED SQL — no conditional columns, uses ONLY standard columns
+    # We need: n, sum(T), sum(T^2), sum(T^3), sum(T^4), sum(y_norm), sum(T*y_norm), sum(T^2*y_norm), sum(y_norm^2)
+    # Uses only standard columns
     sql = f"""
         SELECT
             region,

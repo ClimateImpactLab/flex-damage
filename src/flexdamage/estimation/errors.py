@@ -1,21 +1,20 @@
 """
-Error term computation: ρ, ζ, η.
+Error term computation: rho, zeta, eta.
 
-THIS IS THE FILE THAT BROKE IN v2. Now it's simple because all columns
-are guaranteed by the standardized parquet.
+All columns are guaranteed by the standardized parquet.
 
 Following the R reference (alphafit.R):
-    - ρ: Correlation between regional and global residuals
-    - ζ: Slope of |residuals| vs T (NO intercept)
-    - η: Std dev of residual noise after removing ζ*T
+    - rho: Correlation between regional and global residuals
+    - zeta: Slope of |residuals| vs T (no intercept)
+    - eta: Std dev of residual noise after removing zeta*T
 
-CRITICAL DESIGN:
+Design notes:
 - COALESCE(sdev, 0) handles NULL sdev without conditional SQL
 - scenario = g.scenario OR (NULL = NULL) handles NULL scenario
-- Regional params passed via temp parquet, NOT DataFrame registration
-- ONE SQL query computes ALL error terms
+- Regional params passed via temp parquet, not DataFrame registration
+- One SQL query computes all error terms
 
-IMPORTANT: All SQL uses ONLY the standard columns from 'standardized' VIEW:
+All SQL uses only the standard columns from 'standardized' view:
 region, year, y, T, log_income, w, sdev, scenario, y_sign
 """
 
@@ -133,7 +132,7 @@ def compute_all_error_terms(
 
         # Check for NULL values (can happen with empty data)
         if any(v is None for v in g_stats):
-            logger.warning("Global polynomial stats contain NULL — insufficient data")
+            logger.warning("Global polynomial stats contain NULL, insufficient data")
             return pd.DataFrame(columns=["region", "rho", "zeta", "eta", "rsqr2"])
 
         # Solve 3x3 for global polynomial: y_normed = intercept + alpha*T + beta*T²

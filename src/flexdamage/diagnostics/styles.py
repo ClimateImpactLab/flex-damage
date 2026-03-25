@@ -1,11 +1,10 @@
 """
 Professional visualization styles for FlexDamage diagnostics.
 
-Tufte-inspired design principles:
-- Maximize data-ink ratio
-- Remove chartjunk
-- Use subtle, purposeful color
-- Clear typography
+Design principles:
+- Clear, minimal presentation
+- Subtle, purposeful color
+- Readable typography
 """
 
 import matplotlib.pyplot as plt

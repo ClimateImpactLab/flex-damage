@@ -59,7 +59,7 @@ def _extract_country_code(region: str) -> str:
 
 
 # =============================================================================
-# Section 2: Gamma Sensitivity Table (doc p.8)
+# Section 2: Gamma Sensitivity Table
 # =============================================================================
 
 
@@ -103,15 +103,15 @@ def gamma_sensitivity_table(
             rows.append({
                 "Specification": spec_name,
                 "Gamma": f"{g:.4f}",
-                "SE": f"{se:.2e}" if se > 0 else "—",
-                "95% CI": f"[{g - 1.96*se:.4f}, {g + 1.96*se:.4f}]" if se > 0 else "—",
+                "SE": f"{se:.2e}" if se > 0 else "-",
+                "95% CI": f"[{g - 1.96*se:.4f}, {g + 1.96*se:.4f}]" if se > 0 else "-",
             })
 
     return pd.DataFrame(rows)
 
 
 # =============================================================================
-# Section 3: Literature Comparison Table (doc p.8)
+# Section 3: Literature Comparison Table
 # =============================================================================
 
 
@@ -142,7 +142,7 @@ def gamma_literature_comparison(
 
 
 # =============================================================================
-# Section 5: Zero Crossings Statistics (doc p.9)
+# Section 5: Zero Crossings Statistics
 # =============================================================================
 
 
@@ -211,7 +211,7 @@ def compute_zero_crossing_stats(
 
 
 # =============================================================================
-# Section 6: Maximum Slope Analysis (doc p.10)
+# Section 6: Maximum Slope Analysis
 # =============================================================================
 
 
@@ -266,7 +266,7 @@ def compute_max_slope_stats(
 
 
 # =============================================================================
-# Section 7: Convexity by Country (doc p.10)
+# Section 7: Convexity by Country
 # =============================================================================
 
 
@@ -304,7 +304,7 @@ def compute_convexity_by_country(
 
 
 # =============================================================================
-# Section 9: rsqr2 Quantiles Table (doc p.13)
+# Section 9: rsqr2 Quantiles Table
 # =============================================================================
 
 
@@ -339,7 +339,7 @@ def compute_rsqr2_quantiles(
 
 
 # =============================================================================
-# Section 11: Modelled Variance (doc p.14)
+# Section 11: Modelled Variance
 # =============================================================================
 
 
@@ -651,7 +651,7 @@ def plot_projection_curves(
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
 
     ax.set_xlabel("Temperature Anomaly (°C)")
-    ax.set_ylabel("M(T) = αT + βT²")
+    ax.set_ylabel("M(T) = alpha*T + beta*T^2")
     ax.set_title(title or f"Projected Damage Curves (n={len(df)} regions)")
     ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
@@ -726,9 +726,9 @@ def plot_projection_curves_interactive(
 
         hover_text = (
             f"Region: {region}<br>"
-            f"α: {alpha:.4f}<br>"
-            f"β: {beta:.6f}<br>"
-            f"R²: {rsqr1:.3f}<br>"
+            f"alpha: {alpha:.4f}<br>"
+            f"beta: {beta:.6f}<br>"
+            f"R2: {rsqr1:.3f}<br>"
             f"Zero crossing: {cross_text}"
         )
 
@@ -750,7 +750,7 @@ def plot_projection_curves_interactive(
         x=T, y=y_med,
         mode="lines",
         line=dict(color="darkred", width=3),
-        name=f"Median (α={alpha_med:.3f}, β={beta_med:.5f})",
+        name=f"Median (alpha={alpha_med:.3f}, beta={beta_med:.5f})",
     ))
 
     # Add zero line

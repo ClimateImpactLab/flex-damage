@@ -102,7 +102,7 @@ def main():
                 result = future.result()
                 results.append(result)
 
-                status = "✓" if result["status"] == "success" else "✗"
+                status = "[ok]" if result["status"] == "success" else "[fail]"
                 print(f"{status} {result['config']}")
 
                 if result["status"] == "success":
@@ -115,7 +115,7 @@ def main():
             result = run_single_config(config_path)
             results.append(result)
 
-            status = "✓" if result["status"] == "success" else "✗"
+            status = "[ok]" if result["status"] == "success" else "[fail]"
             print(f"{status} {config_path}")
 
             if result["status"] == "success":

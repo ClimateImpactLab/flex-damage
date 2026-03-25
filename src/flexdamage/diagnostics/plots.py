@@ -431,9 +431,9 @@ def plot_spaghetti_curves_interactive(
 
         hover_text = (
             f"Region: {region}<br>"
-            f"α: {alpha:.4f}<br>"
-            f"β: {beta:.6f}<br>"
-            f"R²: {rsqr1:.3f}<br>"
+            f"alpha: {alpha:.4f}<br>"
+            f"beta: {beta:.6f}<br>"
+            f"R2: {rsqr1:.3f}<br>"
             f"Zero crossing: {cross_text}"
         )
 
@@ -455,7 +455,7 @@ def plot_spaghetti_curves_interactive(
         x=T, y=y_med,
         mode="lines",
         line=dict(color="darkred", width=3),
-        name=f"Median (α={alpha_med:.3f}, β={beta_med:.5f})",
+        name=f"Median (alpha={alpha_med:.3f}, beta={beta_med:.5f})",
     ))
 
     # Add zero line

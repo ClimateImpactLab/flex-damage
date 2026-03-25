@@ -2,17 +2,17 @@
 FlexDamage Pipeline Orchestrator.
 
 Coordinates the full estimation pipeline:
-1. Standardize source → temp parquet (ONCE)
+1. Standardize source to temp parquet (once)
 2. Load standardized parquet into DuckDB
 3. Estimate gamma (sequential, uses all cores via DuckDB)
-4. Parallel: for each gamma quantile → regional + errors
+4. Parallel: for each gamma quantile, run regional + errors
 5. Export parameters
 6. Cleanup temp files
 
 Key design:
 - Workers communicate via parquet files
 - DuckDB connections are per-process (never shared)
-- Standardization happens ONCE in main process
+- Standardization happens once in main process
 """
 
 import logging

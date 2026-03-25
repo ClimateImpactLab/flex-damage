@@ -1,24 +1,24 @@
 """
-Parameter export: Regional results → Standardized CSV + JSON files.
+Parameter export: Regional results to standardized CSV + JSON files.
 
 Output files (per sector/subsector):
-    {sector}__{subsector}__regional_parameters.csv  — 12-column parameter file
-    {sector}__{subsector}__global_results.json      — gamma estimation results
-    {sector}__{subsector}__metadata.json            — run configuration and statistics
+    {sector}__{subsector}__regional_parameters.csv   12-column parameter file
+    {sector}__{subsector}__global_results.json       gamma estimation results
+    {sector}__{subsector}__metadata.json             run configuration and statistics
 
-CSV format (12 columns, one row per region × gamma quantile):
-    region      : VARCHAR  — region identifier
-    gamma       : DOUBLE   — gamma quantile value used
-    alpha       : DOUBLE   — linear temperature coefficient
-    beta        : DOUBLE   — quadratic temperature coefficient
-    sigma11     : DOUBLE   — variance of alpha
-    sigma12     : DOUBLE   — covariance of alpha, beta
-    sigma22     : DOUBLE   — variance of beta
-    rho         : DOUBLE   — correlation with global residuals
-    zeta        : DOUBLE   — slope of |residuals| vs T
-    eta         : DOUBLE   — std dev of residual noise
-    rsqr1       : DOUBLE   — R² of regional polynomial fit
-    rsqr2       : DOUBLE   — R² of error term fit
+CSV format (12 columns, one row per region x gamma quantile):
+    region      : VARCHAR   region identifier
+    gamma       : DOUBLE    gamma quantile value used
+    alpha       : DOUBLE    linear temperature coefficient
+    beta        : DOUBLE    quadratic temperature coefficient
+    sigma11     : DOUBLE    variance of alpha
+    sigma12     : DOUBLE    covariance of alpha, beta
+    sigma22     : DOUBLE    variance of beta
+    rho         : DOUBLE    correlation with global residuals
+    zeta        : DOUBLE    slope of |residuals| vs T
+    eta         : DOUBLE    std dev of residual noise
+    rsqr1       : DOUBLE    R^2 of regional polynomial fit
+    rsqr2       : DOUBLE    R^2 of error term fit
 """
 
 import json
@@ -106,7 +106,7 @@ def export_parameters(
     for col in PARAMETER_COLUMNS:
         if col not in df.columns:
             if col == "gamma":
-                logger.warning(f"Missing column '{col}' — filling with 0.0")
+                logger.warning(f"Missing column '{col}', filling with 0.0")
             df[col] = 0.0
 
     # Select and order columns

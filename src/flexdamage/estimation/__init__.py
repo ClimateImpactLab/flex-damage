@@ -1,11 +1,11 @@
 """
-Estimation module: Standardized parquet → Parameters.
+Estimation module: Standardized parquet to parameters.
 
 All estimation functions assume the DuckDB connection has a
-'standardized' VIEW with exactly these columns:
+'standardized' view with exactly these columns:
 region, year, y, T, log_income, w, sdev, scenario, y_sign
 
-No conditional column handling needed — standardize.py guarantees the schema.
+No conditional column handling needed; standardize.py guarantees the schema.
 """
 
 from .errors import compute_all_error_terms

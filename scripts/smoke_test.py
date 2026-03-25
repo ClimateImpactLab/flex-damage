@@ -217,7 +217,7 @@ def run_smoke_test(verbose: bool = False) -> bool:
         print(f"     True:      {TRUE_GAMMA:.4f}")
         print(f"     Recovered: {gamma_recovered:.4f}")
         print(f"     Error:     {gamma_error:.4f} (synthetic data may not perfectly identify gamma)")
-        print(f"     In range:  {'✓' if gamma_ok else '✗'}")
+        print(f"     In range:  {'[ok]' if gamma_ok else '[fail]'}")
 
         # Check regional parameters (at median gamma quantile)
         median_gamma = results["gamma"].median()
@@ -230,7 +230,7 @@ def run_smoke_test(verbose: bool = False) -> bool:
         for region, true_params in TRUE_PARAMS.items():
             row = median_results[median_results["region"] == region]
             if len(row) == 0:
-                print(f"     {region}: NOT FOUND ✗")
+                print(f"     {region}: NOT FOUND [fail]")
                 all_ok = False
                 continue
 
@@ -248,18 +248,18 @@ def run_smoke_test(verbose: bool = False) -> bool:
             alpha_sign_ok = (alpha_recovered * true_params["alpha"] >= 0) or abs(true_params["alpha"]) < 0.5
             beta_sign_ok = (beta_recovered * true_params["beta"] >= 0) or abs(true_params["beta"]) < 0.15
 
-            status = "✓" if (alpha_sign_ok and beta_sign_ok) else "✗"
-            print(f"     {region}: α={alpha_recovered:.2f} (true={true_params['alpha']:.2f}), "
-                  f"β={beta_recovered:.2f} (true={true_params['beta']:.2f}) {status}")
+            status = "[ok]" if (alpha_sign_ok and beta_sign_ok) else "[fail]"
+            print(f"     {region}: alpha={alpha_recovered:.2f} (true={true_params['alpha']:.2f}), "
+                  f"beta={beta_recovered:.2f} (true={true_params['beta']:.2f}) {status}")
 
             all_ok = all_ok and alpha_sign_ok and beta_sign_ok
 
         # Summary
         print("\n" + "=" * 60)
         if all_ok:
-            print("SMOKE TEST PASSED ✓")
+            print("SMOKE TEST PASSED")
         else:
-            print("SMOKE TEST FAILED ✗")
+            print("SMOKE TEST FAILED")
         print("=" * 60)
 
         return all_ok

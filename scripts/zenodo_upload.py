@@ -998,7 +998,7 @@ Examples:
 
         # Datasets table
         print(f"\nDatasets ({len(datasets)}):\n")
-        print(f"  {'Sector':<12} {'Subsector':<15} {'γ':>8} {'SE':>8} {'R²':>7} {'Regions':>10}")
+        print(f"  {'Sector':<12} {'Subsector':<15} {'Gamma':>8} {'SE':>8} {'R2':>7} {'Regions':>10}")
         print(f"  {'-'*12} {'-'*15} {'-'*8} {'-'*8} {'-'*7} {'-'*10}")
         for d in sorted(datasets, key=lambda x: (x["sector"], x["subsector"])):
             gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"

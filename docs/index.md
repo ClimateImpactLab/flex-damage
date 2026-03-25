@@ -15,8 +15,8 @@ GDP per capita, and $\gamma$ is the income elasticity.
 
 ## Documentation
 
-- [Methodology](methodology.md) — estimation procedure and model specification
-- [Parameters](parameters.md) — output file format and Zenodo downloads
-- [Pipeline](pipeline.md) — running the estimation pipeline
-- [Reports](reports.md) — diagnostic report contents
-- [API Reference](api.md) — function documentation
+- [Methodology](methodology.md): estimation procedure and model specification
+- [Parameters](parameters.md): output file format and Zenodo downloads
+- [Pipeline](pipeline.md): running the estimation pipeline
+- [Reports](reports.md): diagnostic report contents
+- [API Reference](api.md): function documentation

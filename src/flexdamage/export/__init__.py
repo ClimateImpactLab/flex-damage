@@ -1,5 +1,5 @@
 """
-Export module: Parameters → Standardized Output.
+Export module: Parameters to standardized output.
 
 Exports estimation results to:
 - 12-column CSV (standard parameter format)
