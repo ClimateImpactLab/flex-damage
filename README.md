@@ -1,6 +1,8 @@
-# Flexible Damage Function Parameters for Climate Impact Assessment
+# flex-damage
 
-Version 1.0.0-alpha
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19199919.svg)](https://doi.org/10.5281/zenodo.19199919)
+
+[Documentation](https://climateimpactlab.github.io/flex-damage/) | [Reports](https://c1587s.github.io/flex-damage-reports/)
 
 ## Abstract
 
@@ -34,71 +36,6 @@ The income elasticity gamma is estimated globally using a fixed-effects
 specification that controls for region-by-temperature-bin and year effects.
 Standard errors are clustered two-way by region-temperature-bin and year
 following Cameron, Gelbach, and Miller (2011).
-
-## Data Description
-
-| Sector | Subsector | Resolution | gamma | SE(gamma) | Regions | R^2 |
-|--------|-----------|------------|-------|-----------|---------|-----|
-| Agriculture | Cassava | IR | 0.0060 | 0.0015 | -- | 0.911 |
-| Agriculture | Corn | IR | 0.0323 | 0.0008 | -- | 0.967 |
-| Agriculture | Rice | IR | 0.0694 | 0.0020 | -- | 0.964 |
-| Agriculture | Sorghum | IR | 0.0756 | 0.0024 | -- | 0.958 |
-| Agriculture | Soy | IR | -0.0086 | 0.0010 | -- | 0.981 |
-| Agriculture | Wheat Combined | IR | -0.0392 | 0.0016 | -- | 0.778 |
-| Agriculture | Wheat Spring | IR | -0.0326 | 0.0017 | -- | 0.740 |
-| Agriculture | Wheat Winter | IR | -0.0182 | 0.0010 | -- | 0.961 |
-
-Resolution codes:
-
-- IR = Impact Regions (24,326 globally)
-- Country = national-level aggregation
-
-## File Organization
-
-The archive contains sector-specific subdirectories organized by spatial
-resolution:
-
-    flexdamage-parameters-v1.0.0-alpha/
-    |-- README.md
-    |-- manifest.json
-    |-- shapefiles/
-    |   |-- impact_regions.shp
-    |   |-- impact_regions.shx
-    |   |-- impact_regions.dbf
-    |   |-- impact_regions.prj
-    |-- agriculture/
-    |   |-- README.md
-    |   |-- ir/
-    |       |-- corn/
-    |       |   |-- regional_parameters.csv
-    |       |   |-- global_results.json
-    |       |   |-- metadata.json
-    |       |-- rice/
-    |           |-- ...
-
-## Shapefile
-
-The shapefiles/ directory contains the Impact Regions shapefile for mapping
-parameters to geographic locations. The 'hierid' field matches the 'region'
-column in the parameter CSV files. Load with geopandas:
-
-    import geopandas as gpd
-    gdf = gpd.read_file("shapefiles/impact_regions.shp")
-
-Each subsector directory contains three files:
-
-1. regional_parameters.csv -- Regional polynomial coefficients with 12 columns
-   and 19 rows per region (one per gamma quantile).
-
-2. global_results.json -- Results from income elasticity estimation including
-   point estimate, standard error, R^2, sample size, and 19 quantile values.
-
-3. metadata.json -- Run configuration including estimation settings, constraint
-   specifications, and summary statistics.
-
-## Variable Definitions
-
-Each row in the regional parameters file contains 12 fields: region identifies the location, gamma is the income elasticity quantile, alpha and beta are the linear and quadratic temperature coefficients. sigma11, sigma12, sigma22 form the variance-covariance matrix of (alpha, beta). rho is the correlation with global residuals. zeta and eta describe the temperature-dependent and residual error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
 
 ## Usage Notes
 
