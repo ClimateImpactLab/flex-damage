@@ -264,20 +264,6 @@ def collect_datasets(input_dir: Path) -> List[dict]:
 def generate_readme(version: str, datasets: List[dict]) -> str:
     """Generate README.md content (pure ASCII only, no Unicode)."""
 
-    # Build dataset table
-    rows = []
-    for d in sorted(datasets, key=lambda x: (x["sector"], x["subsector"])):
-        gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"
-        se = f"{d['gamma_se']:.4f}" if d.get("gamma_se") else "--"
-        r2 = f"{d['r_squared']:.3f}" if d.get("r_squared") else "--"
-        regions = f"{d['n_regions']:,}" if d.get("n_regions") else "--"
-        rows.append(
-            f"| {d['sector'].title()} | {d['subsector'].replace('_', ' ').title()} | "
-            f"{d['resolution'].upper()} | {gamma} | {se} | {regions} | {r2} |"
-        )
-
-    dataset_table = "\n".join(rows)
-
     return f"""# Flexible Damage Function Parameters for Climate Impact Assessment
 
 Version {version}
@@ -315,17 +301,6 @@ specification that controls for region-by-temperature-bin and year effects.
 Standard errors are clustered two-way by region-temperature-bin and year
 following Cameron, Gelbach, and Miller (2011).
 
-## Data Description
-
-| Sector | Subsector | Resolution | gamma | SE(gamma) | Regions | R^2 |
-|--------|-----------|------------|-------|-----------|---------|-----|
-{dataset_table}
-
-Resolution codes:
-
-- IR = Impact Regions (24,326 globally)
-- Country = national-level aggregation
-
 ## File Organization
 
 The archive contains sector-specific subdirectories organized by spatial
@@ -360,27 +335,23 @@ column in the parameter CSV files. Load with geopandas:
 
 Each subsector directory contains three files:
 
-1. regional_parameters.csv -- Regional polynomial coefficients with 12 columns
+1. regional_parameters.csv: Regional polynomial coefficients with 12 columns
    and 19 rows per region (one per gamma quantile).
 
-2. global_results.json -- Results from income elasticity estimation including
-   point estimate, standard error, R^2, sample size, and 19 quantile values.
+2. global_results.json: Results from income elasticity estimation including
+   point estimate, standard error, R-squared, sample size, and 19 quantile values.
 
-3. metadata.json -- Run configuration including estimation settings, constraint
+3. metadata.json: Run configuration including estimation settings, constraint
    specifications, and summary statistics.
 
 ## Variable Definitions
 
-Each row in the regional parameters file contains 12 fields: region identifies the location, gamma is the income elasticity quantile, alpha and beta are the linear and quadratic temperature coefficients. sigma11, sigma12, sigma22 form the variance-covariance matrix of (alpha, beta). rho is the correlation with global residuals. zeta and eta describe the temperature-dependent and residual error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
-
-## Usage Notes
-
-For deterministic applications, select the median gamma quantile (row 10 of 19
-for each region). For Monte Carlo simulations, sample across all 19 quantiles
-to propagate income elasticity uncertainty.
-
-The variance-covariance parameters (sigma11, sigma12, sigma22) enable joint
-sampling of alpha and beta for uncertainty quantification.
+Each row in the regional parameters file contains 12 fields: region identifies
+the location, gamma is the income elasticity quantile, alpha and beta are the
+linear and quadratic temperature coefficients. sigma11, sigma12, sigma22 form
+the variance-covariance matrix of (alpha, beta). rho is the correlation with
+global residuals. zeta and eta describe the temperature-dependent and residual
+error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
 
 ## License
 
@@ -388,7 +359,7 @@ CC-BY-4.0
 
 ## Contact
 
-Climate Impact Lab -- https://github.com/ClimateImpactLab/flex-damage
+Climate Impact Lab: https://github.com/ClimateImpactLab/flex-damage
 """
 
 
@@ -404,7 +375,7 @@ def generate_sector_readme(sector: str, datasets: List[dict]) -> str:
         "agriculture": {
             "units": "log yield impact (dimensionless, relative to baseline)",
             "outcome": "Log change in crop yield relative to a no-climate-change baseline",
-            "constraint": "beta <= 0 (concavity enforced -- damages accelerate with warming)",
+            "constraint": "beta <= 0 (concavity enforced, damages accelerate with warming)",
             "notes": [
                 "Yields are measured in metric tons per hectare",
                 "Impacts are relative to historical climate baseline (1980-2010)",
@@ -498,9 +469,9 @@ Units: {config['units']}
 
 Each subsector directory contains:
 
-- regional_parameters.csv -- 12 columns, 19 rows per region
-- global_results.json -- gamma estimate, SE, R^2, quantiles
-- metadata.json -- run configuration and summary statistics
+- regional_parameters.csv: 12 columns, 19 rows per region
+- global_results.json: gamma estimate, SE, R-squared, quantiles
+- metadata.json: run configuration and summary statistics
 
 ## Usage Example
 
@@ -734,7 +705,6 @@ def build_zip(
 def build_zenodo_metadata(version: str, readme_content: str) -> dict:
     """Build Zenodo deposit metadata."""
 
-    # Professional description for Zenodo landing page (HTML/LaTeX supported here)
     description = (
         "Econometrically estimated parameters for climate damage functions "
         "relating temperature anomalies to economic impacts across multiple sectors. "
@@ -742,10 +712,8 @@ def build_zenodo_metadata(version: str, readme_content: str) -> dict:
         "$M_{it} = (\\alpha_i T_t + \\beta_i T_t^2) \\cdot Y_{it}^\\gamma$, "
         "where regional coefficients capture spatial heterogeneity in climate sensitivity "
         "and the income elasticity parameter enables income-dependent adaptation. "
-        "Parameters are provided for 24,326 Impact Regions globally,"
-        "with uncertainty quantification via 19 gamma quantiles per region for Monte Carlo simulation. "
-        "Suitable for use in integrated assessment models, social cost of carbon calculations, "
-        "and climate economics research."
+        "Parameters are provided at Impact Region and country resolution, "
+        "with uncertainty quantification via 19 gamma quantiles per region for Monte Carlo simulation."
     )
 
     return {
