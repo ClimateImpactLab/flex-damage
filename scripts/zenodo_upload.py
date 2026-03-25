@@ -270,36 +270,17 @@ Version {version}
 
 ## Abstract
 
-This dataset provides estimated parameters for climate damage functions covering
-multiple economic sectors. The parameters relate temperature anomalies to economic
-impacts while accounting for income-dependent adaptation, enabling their use in
-integrated assessment models and social cost of carbon calculations.
-
-The estimation follows a two-stage procedure. First, a global income elasticity
-parameter (gamma) is estimated via fixed-effects regression on binned
-temperature-impact data. Second, region-specific polynomial coefficients are
-estimated conditional on draws from the income elasticity distribution. This
-approach propagates uncertainty from the global estimation through to regional
-parameters.
-
-## Damage Function Specification
-
-The damage function takes the form:
+Region-specific damage function parameters estimated from projected climate
+impact data. A distinct emulation function is calibrated for each region,
+with globally common income elasticities capturing the benefits of income-driven
+adaptation. The damage function takes the form:
 
     M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma
 
-where:
-
-- M_it is the impact for region i at time t
-- T_t is global mean temperature anomaly from pre-industrial (degrees C)
-- Y_it is GDP per capita (2020 USD PPP)
-- gamma is the income elasticity of damages
-- alpha_i, beta_i are region-specific polynomial coefficients
-
-The income elasticity gamma is estimated globally using a fixed-effects
-specification that controls for region-by-temperature-bin and year effects.
-Standard errors are clustered two-way by region-temperature-bin and year
-following Cameron, Gelbach, and Miller (2011).
+where T is global mean temperature anomaly from pre-industrial (degrees C),
+Y is GDP per capita, and gamma is the income elasticity. Parameters are
+provided at impact region resolution with 19 gamma quantiles per region
+for uncertainty propagation.
 
 ## File Organization
 
@@ -706,14 +687,15 @@ def build_zenodo_metadata(version: str, readme_content: str) -> dict:
     """Build Zenodo deposit metadata."""
 
     description = (
-        "Econometrically estimated parameters for climate damage functions "
-        "relating temperature anomalies to economic impacts across multiple sectors. "
-        "The damage function specification is "
-        "$M_{it} = (\\alpha_i T_t + \\beta_i T_t^2) \\cdot Y_{it}^\\gamma$, "
-        "where regional coefficients capture spatial heterogeneity in climate sensitivity "
-        "and the income elasticity parameter enables income-dependent adaptation. "
-        "Parameters are provided at Impact Region and country resolution, "
-        "with uncertainty quantification via 19 gamma quantiles per region for Monte Carlo simulation."
+        "Region-specific damage function parameters estimated from projected "
+        "climate impact data. A distinct emulation function is calibrated for "
+        "each region, with globally common income elasticities capturing the "
+        "benefits of income-driven adaptation. The damage function takes the "
+        "form M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma, where T "
+        "is global mean temperature anomaly from pre-industrial (degrees C), "
+        "Y is GDP per capita, and gamma is the income elasticity. Parameters "
+        "are provided at impact region resolution with 19 gamma quantiles per "
+        "region for uncertainty propagation."
     )
 
     return {
