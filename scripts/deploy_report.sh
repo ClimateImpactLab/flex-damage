@@ -51,7 +51,7 @@ for r in reports:
     name = r.replace('.html','').replace('_',' ').title()
     html += f'<li><a href=\"{r}\">{name}</a></li>\n'
 html += '</ul>\n'
-html += '<p><a href=\"https://zenodo.org/records/19199919\">Parameters (Zenodo)</a> | '
+html += '<p><a href=\"https://zenodo.org/records/19225233\">Parameters (Zenodo)</a> | '
 html += '<a href=\"https://climateimpactlab.github.io/flex-damage/\">Documentation</a></p>\n'
 html += '</body></html>'
 open('index.html','w').write(html)
