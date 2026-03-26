@@ -1,0 +1,79 @@
+# =============================================================================
+# FlexDamage v3 - Mortality All-Cause Configuration
+# =============================================================================
+# Data: Aggregated mortality data (averaged over batch and GCM dimensions)
+# ~17.6M observations per SSP, 5 SSPs × 2 RCPs × 2 models × 90 years × 24k regions
+# Constraint: β ≥ 0 (convexity - mortality increases with warming, accelerating)
+#
+# The mortality damage function is:
+#   M(T) = (α·T + β·T²) · Y^γ
+#
+# where:
+#   - α: linear temperature sensitivity
+#   - β: quadratic curvature (constrained ≥ 0 for convexity)
+#   - γ: income elasticity (fitted globally)
+#   - Y: GDP per capita
+#   - T: temperature anomaly (°C)
+#
+# Reference: Carleton et al. (2022), "Valuing the Global Mortality Consequences
+#            of Climate Change Accounting for Adaptation Costs and Benefits"
+
+run:
+  name: mortality_allcause_ir
+  description: "All-cause mortality response estimation - Impact Region resolution"
+
+sector:
+  name: mortality
+  subsector: allcause
+  units: "physical"
+  adaptation: with_costs
+
+data:
+  # Source: pre-aggregated parquet from build_mortality_input.py
+  source: /project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/mortality/allcause/ir/mortality_aggregated.parquet
+  format: parquet
+
+  columns:
+    y: adjusted_mortality
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 10
+    ridge_lambda: 1.0e-8
+
+  # KEY DIFFERENCE from agriculture:
+  # Mortality uses beta >= 0 (convexity constraint)
+  # This means damages ACCELERATE with warming (U-shaped response)
+  constraints:
+    - parameter: beta
+      type: min
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/mortality/allcause
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 200

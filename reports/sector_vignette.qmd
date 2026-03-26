@@ -55,6 +55,27 @@ else:
     SOURCE_DATA = Path("/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/corn/ir/ir.zarr")
     VERSION = "1.0.0"
 
+# ============================================================================
+# SECTOR-SPECIFIC CONSTRAINT CONFIGURATION
+# ============================================================================
+# Agriculture: beta <= 0 (concavity) - optimal temperature exists, damages increase
+# Mortality:   beta >= 0 (convexity) - U-shaped response, accelerating damages
+#
+# These settings control text descriptions throughout the report.
+if SECTOR == "mortality":
+    CONSTRAINT_DIRECTION = "min"  # beta >= 0 (convexity)
+    CONSTRAINT_LABEL = "convexity ($\\beta \\geq 0$)"
+    CONSTRAINT_DESCRIPTION = "damages accelerate with warming (U-shaped response)"
+    WRONG_DIRECTION_LABEL = "concave ($\\beta < 0$)"
+    EXPECTED_WRONG_PCT = "~0%"  # With convexity constraint, expect few concave
+else:
+    # Agriculture and other sectors default to concavity constraint
+    CONSTRAINT_DIRECTION = "max"  # beta <= 0 (concavity)
+    CONSTRAINT_LABEL = "concavity ($\\beta \\leq 0$)"
+    CONSTRAINT_DESCRIPTION = "optimal temperature exists, damages accelerate beyond it"
+    WRONG_DIRECTION_LABEL = "convex ($\\beta > 0$)"
+    EXPECTED_WRONG_PCT = "~0%"  # With concavity constraint, expect few convex
+
 print(f"=== Report Config ===")
 print(f"Sector: {SECTOR}")
 print(f"Subsector: {SUBSECTOR}")
@@ -479,8 +500,12 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
 
 ---
 
-# Convexity Analysis 
-For agriculture with $\beta \le 0$ constraint, we expect ~0% convex curves.
+# Convexity Analysis
+
+```{python}
+#| output: asis
+print(f"With the {CONSTRAINT_LABEL} constraint applied, we expect {EXPECTED_WRONG_PCT} {WRONG_DIRECTION_LABEL} curves.")
+```
 
 ```{python}
 #| label: fig-convexity
@@ -807,7 +832,11 @@ else:
 ## Beta (Quadratic Coefficient)
 
 Beta ($\beta$) represents the curvature of the damage function.
-For agriculture, $\beta \leq 0$ is enforced (concavity constraint), meaning damages accelerate with warming.
+
+```{python}
+#| output: asis
+print(f"The {CONSTRAINT_LABEL} constraint is enforced for this sector, meaning {CONSTRAINT_DESCRIPTION}.")
+```
 
 ```{python}
 #| label: fig-map-beta
@@ -882,10 +911,10 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
 
 Comparison of flexible damage function predictions against raw simulation means.
 
-For each scenario (RCP × SSP × Model), we compute at year 2098:
+For each scenario (RCP × SSP × Model), we compute at the final year:
 
 - **Flex predicted**: $(\alpha \cdot T + \beta \cdot T^2) \cdot Y^\gamma$
-- **Raw actual**: `log_yield_impact` value
+- **Raw actual**: The outcome variable (y) from the source data
 
 ```{python}
 #| label: setup-f2
