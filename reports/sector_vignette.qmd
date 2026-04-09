@@ -771,12 +771,17 @@ on the fitted polynomial curve.
 #| output: asis
 
 if len(df_median) > 0 and "rsqr1" in df_median.columns:
-    worst = df_median.nsmallest(2, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
-    worst["alpha"] = worst["alpha"].apply(lambda x: f"{x:.4f}")
-    worst["beta"] = worst["beta"].apply(lambda x: f"{x:.6f}")
-    worst["eta"] = worst["eta"].apply(lambda x: f"{x:.4f}")
-    worst["rsqr1"] = worst["rsqr1"].apply(lambda x: f"{x:.3f}")
+    # Filter out degenerate regions with no meaningful fit
+    _valid = df_median[
+        (df_median["rsqr1"] > 0.001) &
+        (df_median["alpha"].abs() > 1e-10) &
+        (df_median["beta"].abs() > 1e-10)
+    ]
+
+    worst = _valid.nsmallest(2, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
     worst.columns = ["Region", "alpha", "beta", "eta", "R2"]
+    for _c in ["alpha", "beta", "eta", "R2"]:
+        worst[_c] = worst[_c].map(lambda x: f"{x:.4f}")
 
     from IPython.display import Markdown
     display(Markdown(worst.to_markdown(index=False)))
@@ -790,7 +795,13 @@ import matplotlib.pyplot as plt
 import duckdb
 
 if len(df_median) > 0 and "rsqr1" in df_median.columns:
-    worst_2 = df_median.nsmallest(2, "rsqr1")
+    # Filter out degenerate regions with no meaningful fit
+    _valid_plot = df_median[
+        (df_median["rsqr1"] > 0.001) &
+        (df_median["alpha"].abs() > 1e-10) &
+        (df_median["beta"].abs() > 1e-10)
+    ]
+    worst_2 = _valid_plot.nsmallest(2, "rsqr1")
 
     # Try to load source data for raw overlay
     _raw_available = False
