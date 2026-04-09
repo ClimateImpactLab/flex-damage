@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/index.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/api.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/api/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/methodology.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/methodology/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/parameters.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/parameters/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/pipeline.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/pipeline/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
     <url>
-         <loc>https://climateimpactlab.github.io/flex-damage/reports.html</loc>
+         <loc>https://climateimpactlab.github.io/flex-damage/reports/</loc>
          <lastmod>2026-04-09</lastmod>
     </url>
 </urlset>
