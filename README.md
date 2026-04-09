@@ -76,7 +76,7 @@ python scripts/run.py configs/agriculture/corn.yaml
 This runs the full pipeline: data standardization, gamma estimation
 via fixed effects, regional polynomial fitting, error term computation,
 and parameter export. See the
-[pipeline documentation](https://climateimpactlab.github.io/flex-damage/pipeline/)
+[pipeline documentation](https://climateimpactlab.github.io/flex-damage/pipeline.html)
 for details on each step and the config format.
 
 To generate a diagnostic report:
@@ -98,7 +98,7 @@ on Zenodo:
 Each parameter file contains 12 fields per region per gamma quantile:
 alpha, beta, their variance-covariance matrix, spatial correlation,
 error terms, and fit diagnostics. The format is described in the
-[parameters documentation](https://climateimpactlab.github.io/flex-damage/parameters/).
+[parameters documentation](https://climateimpactlab.github.io/flex-damage/parameters.html).
 
 ## Documentation
 
