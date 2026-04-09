@@ -20,7 +20,7 @@ Beta concentrated near zero suggests the constraint binds frequently.
 
 ## Polynomial summary
 
-Evaluates the fitted quadratic $M(T) = \alpha T + \beta T^2$ across
+Evaluates the fitted quadratic $D(T) = \alpha T + \beta T^2$ across
 all regions:
 
 - **Zero crossings**: At what temperature does the polynomial change
@@ -56,7 +56,7 @@ simulation data?
 
 For each scenario (RCP $\times$ SSP $\times$ period):
 
-$$\hat{M}_i = (\alpha_i \bar{T} + \beta_i \bar{T}^2) \cdot \bar{Y}_i^{\gamma}$$
+$$\hat{D}_i = (\alpha_i \bar{T} + \beta_i \bar{T}^2) \cdot \bar{Y}_i^{\gamma}$$
 
 is compared to the raw simulation mean $\bar{N}_i$ for that region
 and scenario.

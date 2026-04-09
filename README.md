@@ -5,6 +5,10 @@
 [Documentation](https://climateimpactlab.github.io/flex-damage/) |
 [Reports](https://c1587s.github.io/flex-damage-reports/)
 
+> This is an internal tool for the Climate Impact Lab, designed to
+> run on the University of Chicago RCC cluster (Midway) with access
+> to CIL project data.
+
 This library fits statistical emulators to represent projected climate
 impacts. A distinct emulation function is calibrated for each region
 of the globe. Globally common income elasticities capture the benefits
@@ -14,9 +18,9 @@ functions for each region given values of the income elasticity.
 
 The estimated damage function for region i at time t is:
 
-$$M_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
+$$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
 
-where M is the sector-specific impact, T is global mean temperature
+where D is the sector-specific impact, T is global mean temperature
 anomaly from pre-industrial (degrees C), Y is GDP per capita, and
 gamma is the income elasticity. Each region gets its own polynomial
 coefficients (alpha, beta) capturing local climate sensitivity.

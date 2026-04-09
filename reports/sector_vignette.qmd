@@ -122,32 +122,42 @@ display(Markdown(f"## {SECTOR.title()}: {SUBSECTOR.replace('_', ' ').title()}"))
 
 Flexible damage function parameters for **`{python} SECTOR.title()`** (`{python} SUBSECTOR`) at the Impact Region level.
 
-$$M_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
-
-where $\gamma$ is the income elasticity (fitted globally), $\alpha_i$ is the linear coefficient, and $\beta_i$ is the quadratic coefficient.
-
 ```{python}
 #| output: asis
-gamma = global_results.get("gamma", 0)
-gamma_se = global_results.get("gamma_se", 0)
-r_squared = global_results.get("r_squared", 0)
-n_obs = global_results.get("n_obs", 0)
+# Sector-specific description of what is being estimated
+_sector_descriptions = {
+    ("agriculture", "corn"): "Change in corn yields (log change in yields) under full adaptation",
+    ("agriculture", "rice"): "Change in rice yields (log change in yields) under full adaptation",
+    ("agriculture", "soy"): "Change in soy yields (log change in yields) under full adaptation",
+    ("agriculture", "sorghum"): "Change in sorghum yields (log change in yields) under full adaptation",
+    ("agriculture", "cassava"): "Change in cassava yields (log change in yields) under full adaptation",
+    ("agriculture", "wheat_combined"): "Change in wheat yields (log change in yields) under full adaptation",
+    ("agriculture", "wheat_spring"): "Change in spring wheat yields (log change in yields) under full adaptation",
+    ("agriculture", "wheat_winter"): "Change in winter wheat yields (log change in yields) under full adaptation",
+    ("mortality", "allcause"): "Change in all-cause all-age mortality rate (deaths per 100,000) under full adaptation with adaptation costs",
+}
 
-print(f"""
-| Statistic | Value |
-|-----------|-------|
-| Income elasticity ($\\gamma$) | {gamma:.4f} |
-| Standard error | {gamma_se:.2e} |
-| R-squared | {r_squared:.4f} |
-| Observations | {n_obs:,} |
-| Regions | {n_regions:,} |
-| Gamma quantiles | {n_quantiles} |
-""")
+_desc = _sector_descriptions.get((SECTOR, SUBSECTOR), "")
+
+# Also read units from metadata if available
+_units = metadata.get("config", {}).get("sector", {}).get("units", "")
+_adaptation = metadata.get("config", {}).get("sector", {}).get("adaptation", "full adaptation")
+
+if _desc:
+    print(f"**{_desc}**")
+elif _units:
+    print(f"**Outcome: {_units}, {_adaptation}**")
 ```
+
+$$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
+
+where $\gamma$ is the income elasticity (fitted globally), $\alpha_i$ is the linear coefficient, and $\beta_i$ is the quadratic coefficient.
 
 ---
 
 # Global Estimation
+
+## Income Elasticity Estimation
 
 The income elasticity $\gamma$ is estimated using a fixed-effects regression:
 
@@ -155,22 +165,28 @@ $$y_{it} = \gamma \cdot \log(Y_{it}) + \mu_{g(i,T)} + \nu_t + \varepsilon_{it}$$
 
 where $\mu_{g(i,T)}$ are region-by-temperature-bin fixed effects and $\nu_t$ are year fixed effects.
 
-## Gamma Robustness (Sensitivity Analysis)
-
 ```{python}
-#| label: tbl-gamma-sensitivity
-#| tbl-cap: "Gamma Estimates Under Different Specifications"
+#| label: tbl-gamma-estimation
+#| tbl-cap: "Income Elasticity (Gamma) Estimation Results"
 #| output: asis
 
 if global_results.get("gamma"):
     gamma = global_results["gamma"]
     gamma_se = global_results.get("gamma_se", 0)
+    r_squared = global_results.get("r_squared", 0)
+    n_obs = global_results.get("n_obs", 0)
     ci_low = gamma - 1.96 * gamma_se
     ci_high = gamma + 1.96 * gamma_se
     print(f"""
-| Specification | Gamma | SE | 95% CI |
-|---------------|-------|-----|--------|
-| Baseline | {gamma:.4f} | {gamma_se:.2e} | [{ci_low:.4f}, {ci_high:.4f}] |
+| Statistic | Value |
+|-----------|-------|
+| Income elasticity ($\\gamma$) | {gamma:.4f} |
+| Standard error | {gamma_se:.2e} |
+| 95% CI | [{ci_low:.4f}, {ci_high:.4f}] |
+| R-squared | {r_squared:.4f} |
+| Observations | {n_obs:,} |
+| Regions | {n_regions:,} |
+| Gamma quantiles | {n_quantiles} |
 """)
 ```
 
@@ -272,6 +288,22 @@ plt.show()
 plt.close('all')
 ```
 
+## Projection Equation and Parameter Definitions
+
+The estimated parameters are used to project damages via Monte Carlo sampling:
+
+$$D_{it}^k = (\hat{\alpha}_{ik} T_t + \hat{\beta}_{ik} T_t^2) Y_{it}^{\hat{\gamma}_k} + \hat{\theta}_{ik} T_t Y_{it}^{\hat{\gamma}_k} + \hat{\phi}_{it}^k$$
+
+where $k$ indexes the Monte Carlo draw. The parameters in each row of the output CSV control distinct components of this equation:
+
+- **gamma**: income elasticity $\hat{\gamma}_k$, one of 19 quantile values drawn from $N(\hat{\gamma}, SE(\hat{\gamma}))$
+- **alpha, beta**: linear and quadratic temperature coefficients; $\hat{\alpha}_{ik}$ and $\hat{\beta}_{ik}$ are drawn from the joint normal defined by the VCV below
+- **sigma11, sigma12, sigma22**: variance-covariance matrix of $(\alpha, \beta)$, used for joint uncertainty sampling
+- **rho**: correlation between regional and global polynomial residuals $\rho_i$, used to maintain spatial covariance across regions in Monte Carlo draws
+- **zeta**: temperature-dependent error scale $\zeta_{ik}$; the run-specific error term $\hat{\theta}_{ik}$ is drawn from $N(0, \zeta_{ik})$
+- **eta**: residual noise standard deviation $\eta_{ik}$; the annual noise $\hat{\phi}_{it}^k$ is drawn from $N(0, \eta_{ik})$
+- **rsqr1, rsqr2**: polynomial fit quality and error model fit, respectively
+
 ## Summary Statistics
 
 ```{python}
@@ -308,7 +340,7 @@ else:
 ---
 
 # Spaghetti Curves 
-Regional damage function curves showing M(T) = αT + βT² for sampled regions.
+Regional damage function curves showing D(T) = αT + βT² for sampled regions.
 
 ```{python}
 #| label: fig-spaghetti
@@ -375,7 +407,7 @@ fig.add_hline(y=0, line_dash="dash", line_color="black", line_width=1)
 
 fig.update_layout(
     xaxis_title="Climatic temperature change (°C)",
-    yaxis_title="Regional damage function M(T)",
+    yaxis_title="Regional damage function D(T)",
     template="plotly_white",
     height=500,
     hovermode="closest",
@@ -500,11 +532,27 @@ if len(df_median) > 0 and "alpha" in df_median.columns and "beta" in df_median.c
 
 ---
 
-# Convexity Analysis
-
 ```{python}
 #| output: asis
-print(f"With the {CONSTRAINT_LABEL} constraint applied, we expect {EXPECTED_WRONG_PCT} {WRONG_DIRECTION_LABEL} curves.")
+
+# Only show convexity analysis if NO constraint on beta
+_has_beta_constraint = False
+
+# Check metadata config for constraints
+_constraints = metadata.get("config", {}).get("estimation", {}).get("constraints", [])
+for _c in _constraints:
+    if _c.get("parameter") == "beta":
+        _has_beta_constraint = True
+        break
+
+# Fallback: if no metadata, infer from CONSTRAINT_DIRECTION
+if not _constraints and CONSTRAINT_DIRECTION in ("max", "min"):
+    _has_beta_constraint = True
+
+if not _has_beta_constraint:
+    print("# Convexity Analysis\n")
+else:
+    print("*Convexity analysis omitted (beta constraint active).*\n")
 ```
 
 ```{python}
@@ -513,7 +561,7 @@ print(f"With the {CONSTRAINT_LABEL} constraint applied, we expect {EXPECTED_WRON
 
 import matplotlib.pyplot as plt
 
-if len(df_median) > 0 and "beta" in df_median.columns:
+if not _has_beta_constraint and len(df_median) > 0 and "beta" in df_median.columns:
     beta_tol = 1e-8
 
     n_convex = (df_median["beta"] > beta_tol).sum()
@@ -527,17 +575,17 @@ if len(df_median) > 0 and "beta" in df_median.columns:
     colors = []
 
     if n_concave > 0:
-        categories.append(f"Concave (β < 0)")
+        categories.append(f"Concave (beta < 0)")
         counts.append(n_concave)
         colors.append("#27AE60")
 
     if n_constrained > 0:
-        categories.append(f"Constrained (β ≈ 0)")
+        categories.append(f"Constrained (beta = 0)")
         counts.append(n_constrained)
         colors.append("#F39C12")
 
     if n_convex > 0:
-        categories.append(f"Convex (β > 0)")
+        categories.append(f"Convex (beta > 0)")
         counts.append(n_convex)
         colors.append("#E74C3C")
 
@@ -566,11 +614,11 @@ if len(df_median) > 0 and "beta" in df_median.columns:
 
 import matplotlib.pyplot as plt
 
-if len(df_median) > 0 and "beta" in df_median.columns:
+if not _has_beta_constraint and len(df_median) > 0 and "beta" in df_median.columns:
     fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
     ax.hist(df_median["beta"], bins=50, color="#888888", edgecolor="black", linewidth=0.5)
     ax.axvline(0, color="red", linestyle="--", linewidth=1.5)
-    ax.set_xlabel("β (Quadratic Coefficient)", fontsize=10)
+    ax.set_xlabel("beta (Quadratic Coefficient)", fontsize=10)
     ax.set_ylabel("Region count", fontsize=10)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -580,14 +628,19 @@ if len(df_median) > 0 and "beta" in df_median.columns:
     plt.close('all')
 ```
 
-## Convexity by Country
+```{python}
+#| output: asis
+
+if not _has_beta_constraint:
+    print("## Convexity by Country\n")
+```
 
 ```{python}
 #| label: tbl-convexity-country
 #| tbl-cap: "Fraction of Convex (beta > 0) Regions by Country (top 20)"
 #| output: asis
 
-if len(df_median) > 0 and "beta" in df_median.columns and "region" in df_median.columns:
+if not _has_beta_constraint and len(df_median) > 0 and "beta" in df_median.columns and "region" in df_median.columns:
     # Extract country code
     df_c = df_median.copy()
     df_c["country"] = df_c["region"].str.split(".").str[0]
@@ -608,7 +661,7 @@ if len(df_median) > 0 and "beta" in df_median.columns and "region" in df_median.
         from IPython.display import Markdown
         display(Markdown(top.to_markdown(index=False)))
     else:
-        print("*No countries with convex (β > 0) regions*")
+        print("*No countries with convex (beta > 0) regions*")
 ```
 
 ---
@@ -668,7 +721,7 @@ else:
 ---
 
 # Modelled Variance 
-Modelled variance statistic: $1 - \frac{\sum_i \eta_i^2}{\sum_i M_i^2}$
+Modelled variance statistic: $1 - \frac{\sum_i \eta_i^2}{\sum_i D_i^2}$
 
 ```{python}
 #| label: tbl-modelled-variance
@@ -694,11 +747,11 @@ if len(df_median) > 0 and "eta" in df_median.columns:
 |-----------|-------|
 | Modelled variance | {modelled_var:.4f} |
 | Sum(η²) | {eta_sq_sum:.4f} |
-| Sum(M²) at T={T_ref}°C | {M_sq_sum:.4f} |
+| Sum(D²) at T={T_ref}°C | {M_sq_sum:.4f} |
 | N regions | {len(df_median):,} |
 """)
         else:
-            print("*Cannot compute: Sum(M²) = 0*")
+            print("*Cannot compute: Sum(D²) = 0*")
     else:
         print("*Missing alpha/beta columns*")
 else:
@@ -709,18 +762,21 @@ else:
 
 # Worst Offenders
 
+The 2 worst-fitting regions by R-squared, with raw simulation data overlaid
+on the fitted polynomial curve.
+
 ```{python}
 #| label: tbl-worst
-#| tbl-cap: "Regions with Highest Residual Noise (η)"
+#| tbl-cap: "Worst-Fitting Regions (lowest R-squared)"
 #| output: asis
 
-if len(df_median) > 0 and "eta" in df_median.columns:
-    worst = df_median.nlargest(10, "eta")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
+if len(df_median) > 0 and "rsqr1" in df_median.columns:
+    worst = df_median.nsmallest(2, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
     worst["alpha"] = worst["alpha"].apply(lambda x: f"{x:.4f}")
     worst["beta"] = worst["beta"].apply(lambda x: f"{x:.6f}")
     worst["eta"] = worst["eta"].apply(lambda x: f"{x:.4f}")
     worst["rsqr1"] = worst["rsqr1"].apply(lambda x: f"{x:.3f}")
-    worst.columns = ["Region", "α", "β", "η", "R²"]
+    worst.columns = ["Region", "alpha", "beta", "eta", "R2"]
 
     from IPython.display import Markdown
     display(Markdown(worst.to_markdown(index=False)))
@@ -728,40 +784,91 @@ if len(df_median) > 0 and "eta" in df_median.columns:
 
 ```{python}
 #| label: fig-worst-curves
-#| fig-cap: "Damage curves for worst-fitting regions"
+#| fig-cap: "Fitted polynomial with raw data for worst-fitting regions"
 
 import matplotlib.pyplot as plt
+import duckdb
 
-if len(df_median) > 0 and "eta" in df_median.columns:
-    worst = df_median.nlargest(10, "eta")
-    T = np.linspace(-2, 8, 100)
+if len(df_median) > 0 and "rsqr1" in df_median.columns:
+    worst_2 = df_median.nsmallest(2, "rsqr1")
 
-    # Color palette for distinct curves
-    colors = [
-        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
-    ]
+    # Try to load source data for raw overlay
+    _raw_available = False
+    _worst_con = None
 
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+    if SOURCE_DATA.exists():
+        try:
+            _worst_con = duckdb.connect()
+            source_path = Path(SOURCE_DATA)
+            if source_path.suffix == ".parquet":
+                _worst_con.execute(f"CREATE VIEW raw_worst AS SELECT * FROM read_parquet('{source_path}')")
+            elif source_path.suffix == ".zarr":
+                import xarray as xr
+                _ds = xr.open_zarr(str(source_path))
+                _df_tmp = _ds.to_dataframe().reset_index()
+                _worst_con.execute("CREATE VIEW raw_worst AS SELECT * FROM _df_tmp")
+            else:
+                _worst_con.execute(f"CREATE VIEW raw_worst AS SELECT * FROM read_parquet('{source_path}/*.parquet')")
 
-    for i, (_, row) in enumerate(worst.iterrows()):
-        alpha = row["alpha"] if "alpha" in row.index else 0
-        beta = row["beta"] if "beta" in row.index else 0
-        region = str(row["region"]) if "region" in row.index else "Unknown"
+            # Detect column names
+            _wcols = _worst_con.execute("SELECT column_name FROM information_schema.columns WHERE table_name='raw_worst'").df()["column_name"].tolist()
 
-        M = alpha * T + beta * T**2
-        ax.plot(T, M, color=colors[i % len(colors)], linewidth=1.5, alpha=0.8, label=region[:12])
+            _w_region_col = "region" if "region" in _wcols else "hierid" if "hierid" in _wcols else None
+            _w_temp_col = "temperature_anomaly" if "temperature_anomaly" in _wcols else "tas" if "tas" in _wcols else None
+            if "log_yield_impact" in _wcols:
+                _w_y_col = "log_yield_impact"
+            elif "adjusted_mortality" in _wcols:
+                _w_y_col = "adjusted_mortality"
+            else:
+                _standard = {"region", "hierid", "year", "temperature_anomaly", "tas", "gdppc", "population", "rcp", "ssp", "model"}
+                _candidates = [c for c in _wcols if c not in _standard]
+                _w_y_col = _candidates[0] if _candidates else None
 
-    ax.axhline(0, color="black", linestyle="--", linewidth=0.8)
-    ax.set_xlabel("Temperature (°C)", fontsize=10)
-    ax.set_ylabel("M(T) = αT + βT²", fontsize=10)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.tick_params(labelsize=9)
-    ax.legend(fontsize=7, loc="upper left", ncol=2)
-    plt.tight_layout()
-    plt.show()
-    plt.close('all')
+            if _w_region_col and _w_temp_col and _w_y_col:
+                _raw_available = True
+        except Exception as e:
+            print(f"Could not load source data for overlay: {e}")
+
+    for _, row in worst_2.iterrows():
+        region = str(row["region"])
+        alpha = row["alpha"]
+        beta = row["beta"]
+        rsqr1 = row["rsqr1"]
+
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+
+        # Plot fitted curve
+        T = np.linspace(0, 8, 100)
+        D = alpha * T + beta * T**2
+        ax.plot(T, D, color="darkred", linewidth=2, label="Fitted polynomial")
+
+        # Overlay raw data if available
+        if _raw_available:
+            try:
+                raw_region = _worst_con.execute(f"""
+                    SELECT {_w_temp_col} as T, {_w_y_col} as y
+                    FROM raw_worst
+                    WHERE {_w_region_col} = '{region}'
+                """).df()
+                ax.scatter(raw_region["T"], raw_region["y"],
+                           alpha=0.2, s=5, color="steelblue", label="Raw data")
+            except Exception:
+                pass
+
+        ax.axhline(y=0, color="black", linewidth=0.5)
+        ax.set_xlabel("Temperature anomaly (C)", fontsize=10)
+        ax.set_ylabel("Impact", fontsize=10)
+        ax.set_title(f"{region} (R2 = {rsqr1:.3f})", fontsize=11)
+        ax.legend(fontsize=9)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.tick_params(labelsize=9)
+        plt.tight_layout()
+        plt.show()
+        plt.close()
+
+    if _worst_con is not None:
+        _worst_con.close()
 ```
 
 ---
@@ -947,14 +1054,52 @@ if IR_SHAPEFILE.exists():
 #| label: load-raw-data-f2
 #| include: false
 
+import duckdb
+
 df_raw = None
 rcps, ssps, models_list = [], [], []
 region_col, temp_col, y_col, gdp_col = None, None, None, None
 target_year = None
 
 if SOURCE_DATA.exists():
-    ds = xr.open_zarr(SOURCE_DATA)
-    df_raw = ds.to_dataframe().reset_index()
+    # Handle both zarr and parquet formats
+    source_path = Path(SOURCE_DATA)
+    con = duckdb.connect()
+
+    if source_path.suffix == ".parquet" or source_path.name.endswith(".parquet"):
+        con.execute(f"CREATE VIEW raw AS SELECT * FROM read_parquet('{source_path}')")
+    elif source_path.is_dir():
+        try:
+            import xarray as xr
+            ds = xr.open_zarr(str(source_path))
+            df_raw_temp = ds.to_dataframe().reset_index()
+            con.execute("CREATE VIEW raw AS SELECT * FROM df_raw_temp")
+        except:
+            con.execute(f"CREATE VIEW raw AS SELECT * FROM read_parquet('{source_path}/*.parquet')")
+    else:
+        print(f"Unknown source format: {source_path}")
+
+    # Get column names from the view
+    available_cols = con.execute("SELECT column_name FROM information_schema.columns WHERE table_name='raw'").df()
+    cols = list(available_cols["column_name"])
+    print(f"Available columns: {cols}")
+
+    # Detect y column automatically
+    if "log_yield_impact" in cols:
+        y_col = "log_yield_impact"
+    elif "adjusted_mortality" in cols:
+        y_col = "adjusted_mortality"
+    else:
+        # Fallback: find first column not in standard set
+        standard_cols = ["region", "year", "rcp", "ssp", "model", "gdppc", "pop", "temperature_anomaly", "batch", "gcm", "hierid", "temperature"]
+        y_col = [c for c in cols if c not in standard_cols]
+        y_col = y_col[0] if y_col else None
+
+    print(f"Using y column: {y_col}")
+
+    # Load data to DataFrame
+    df_raw = con.execute("SELECT * FROM raw").df()
+    con.close()
 
     # Find max year (likely 2098)
     if "year" in df_raw.columns:
@@ -967,7 +1112,6 @@ if SOURCE_DATA.exists():
 
     region_col = "region" if "region" in df_raw.columns else "hierid" if "hierid" in df_raw.columns else None
     temp_col = "temperature_anomaly" if "temperature_anomaly" in df_raw.columns else "temperature" if "temperature" in df_raw.columns else None
-    y_col = "log_yield_impact" if "log_yield_impact" in df_raw.columns else "y" if "y" in df_raw.columns else None
     gdp_col = "gdppc" if "gdppc" in df_raw.columns else None
 
     print(f"RCPs: {rcps} | SSPs: {ssps} | Models: {models_list}")

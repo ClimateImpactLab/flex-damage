@@ -5,7 +5,7 @@
 The damage function relates sector-specific impacts to temperature
 and income:
 
-$$M_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
+$$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
 
 Each region has its own polynomial ($\alpha_i$, $\beta_i$) capturing
 how sensitive it is to temperature. The global parameter $\gamma$
@@ -17,6 +17,21 @@ time-varying global coefficients. Here, spatial heterogeneity is
 explicit through region-specific coefficients, and income effects
 are captured by a single elasticity rather than explicit adaptation
 pathways.
+
+## Projection equation
+
+The full projection equation with uncertainty, used for Monte Carlo
+sampling, is:
+
+$$D_{it}^k = (\hat{\alpha}_{ik} T_t + \hat{\beta}_{ik} T_t^2) Y_{it}^{\hat{\gamma}_k} + \hat{\theta}_{ik} T_t Y_{it}^{\hat{\gamma}_k} + \hat{\phi}_{it}^k$$
+
+where $k$ indexes the Monte Carlo draw, $\hat{\gamma}_k$ is one of
+19 quantile values, $\hat{\alpha}_{ik}$ and $\hat{\beta}_{ik}$ are
+drawn from the joint normal with the provided VCV (sigma11, sigma12,
+sigma22), $\hat{\theta}_{ik}$ is drawn from $N(0, \zeta_{ik})$ (the
+run-specific temperature-dependent error), and $\hat{\phi}_{it}^k$ is
+drawn from $N(0, \eta_{ik})$ (the annual noise). $\rho_i$ controls
+the correlation between regional and global $\theta$ draws.
 
 ## Estimation steps
 
@@ -92,7 +107,7 @@ pre-industrial by construction.
 
 ### 6. Output
 
-Each row contains 12 fields. `region` identifies the location. `gamma` is the income elasticity quantile value for this row (there are 19 rows per region, one per quantile). `alpha` and `beta` are the linear and quadratic temperature coefficients in the polynomial $M(T) = \alpha T + \beta T^2$. The variance-covariance matrix of $(\alpha, \beta)$ is given by `sigma11` (variance of alpha), `sigma12` (covariance), and `sigma22` (variance of beta), enabling joint uncertainty sampling. `rho` is the correlation between regional and global polynomial residuals, used to maintain spatial covariance in Monte Carlo draws. `zeta` is the temperature-dependent error scale and `eta` is the residual noise standard deviation; together they describe the prediction uncertainty that grows with temperature. `rsqr1` measures the polynomial fit quality and `rsqr2` measures the error model fit.
+Each row contains 12 fields. `region` identifies the location. `gamma` is the income elasticity quantile value for this row (there are 19 rows per region, one per quantile). `alpha` and `beta` are the linear and quadratic temperature coefficients in the polynomial $D(T) = \alpha T + \beta T^2$. The variance-covariance matrix of $(\alpha, \beta)$ is given by `sigma11` (variance of alpha), `sigma12` (covariance), and `sigma22` (variance of beta), enabling joint uncertainty sampling. `rho` is the correlation between regional and global polynomial residuals, used to maintain spatial covariance in Monte Carlo draws. `zeta` is the temperature-dependent error scale and `eta` is the residual noise standard deviation; together they describe the prediction uncertainty that grows with temperature. `rsqr1` measures the polynomial fit quality and `rsqr2` measures the error model fit.
 
 ## Comparison methodology (flex vs raw)
 
@@ -100,7 +115,7 @@ For validation, the fitted damage function is compared to the raw
 simulation data under specific scenarios (RCP $\times$ SSP $\times$
 period). For a given scenario:
 
-$$\hat{M}_i = (\alpha_i \bar{T} + \beta_i \bar{T}^2) \cdot \bar{Y}_i^{\gamma}$$
+$$\hat{D}_i = (\alpha_i \bar{T} + \beta_i \bar{T}^2) \cdot \bar{Y}_i^{\gamma}$$
 
 where $\bar{T}$ and $\bar{Y}_i$ are scenario-specific averages. This
 is compared to the raw simulation mean per region. The comparison
