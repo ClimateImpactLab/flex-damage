@@ -37,27 +37,93 @@ use the concept DOI.
 
 | Version | Date | DOI | Sectors |
 |---------|------|-----|---------|
+| 1.1.0 | 2026-04-23 | [10.5281/zenodo.19712742](https://zenodo.org/records/19712742) | All sectors: agriculture (8 crops), mortality (allcause), labor (3), energy (3) |
 | 1.0.0-alpha | 2026-03-22 | [10.5281/zenodo.19199919](https://zenodo.org/records/19199919) | Agriculture (8 crops) |
 
 ### Download
 
-Direct download:
+#### Latest version (auto-resolves via concept DOI)
 
+The concept DOI always redirects to the most recent published version.
+This is the recommended way for users who want the latest parameters.
+
+**Shell (curl with follow-redirects):**
 ```bash
-wget https://zenodo.org/records/19199919/files/flexdamage-parameters-v1.0.0-alpha.zip
-unzip flexdamage-parameters-v1.0.0-alpha.zip
+# Resolve the concept DOI to the latest record, then list files
+curl -sL "https://zenodo.org/api/records/19199918/versions/latest" \
+    | python -c "import json,sys; r=json.load(sys.stdin); print(r['id']); \
+                 print('\n'.join(f['links']['self'] for f in r['files']))"
+
+# Or just grab the zip directly from the DOI-resolved URL
+curl -sLO "$(curl -sL https://zenodo.org/api/records/19199918/versions/latest \
+    | python -c "import json,sys; r=json.load(sys.stdin); \
+                 print(next(f['links']['self'] for f in r['files'] if f['key'].endswith('.zip')))")"
+unzip flexdamage-parameters-v*.zip
 ```
 
-Via API (useful for automation):
+Replace `19199918` with the actual concept DOI number for this dataset
+(find it on any Zenodo record page under "Cite all versions").
+
+**Python (requests):**
+```python
+import requests
+
+CONCEPT_ID = 19199918  # concept DOI numeric part
+
+# Resolve to latest version
+r = requests.get(f"https://zenodo.org/api/records/{CONCEPT_ID}/versions/latest")
+record = r.json()
+
+print(f"Latest version: {record['metadata']['version']}")
+print(f"Record ID: {record['id']}")
+
+# Download the zip
+for f in record["files"]:
+    if f["key"].endswith(".zip"):
+        url = f["links"]["self"]
+        zip_bytes = requests.get(url).content
+        with open(f["key"], "wb") as out:
+            out.write(zip_bytes)
+        print(f"Downloaded {f['key']} ({f['size'] / 1e6:.1f} MB)")
+        break
+```
+
+#### Specific version (pin for reproducibility)
+
+When publishing results, cite the version DOI so others can retrieve the
+exact parameters you used.
+
+**Shell:**
+```bash
+# Replace with your desired version record ID
+VERSION_ID=19199919
+curl -sL -O "https://zenodo.org/api/records/${VERSION_ID}/files/flexdamage-parameters-v1.0.0-alpha.zip/content"
+```
+
+**Python:**
+```python
+import requests
+
+VERSION_ID = 19199919  # specific version DOI
+FILENAME = "flexdamage-parameters-v1.0.0-alpha.zip"
+
+r = requests.get(f"https://zenodo.org/records/{VERSION_ID}/files/{FILENAME}")
+with open(FILENAME, "wb") as f:
+    f.write(r.content)
+```
+
+#### Browse all versions
 
 ```python
 import requests
 
-r = requests.get("https://zenodo.org/api/records/19199919")
-files = r.json()["files"]
-for f in files:
-    if f["key"].endswith(".zip"):
-        print(f["links"]["self"])
+CONCEPT_ID = 19199918
+r = requests.get(f"https://zenodo.org/api/records/{CONCEPT_ID}/versions")
+for hit in r.json()["hits"]["hits"]:
+    v = hit["metadata"]["version"]
+    rid = hit["id"]
+    date = hit["metadata"]["publication_date"]
+    print(f"  v{v:<12} id={rid:<10} published={date}")
 ```
 
 ### ZIP contents

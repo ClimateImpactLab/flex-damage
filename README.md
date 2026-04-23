@@ -93,7 +93,9 @@ python scripts/render_report.py \
 Pre-estimated parameters for all completed sectors are available
 on Zenodo:
 
-> https://zenodo.org/records/19225233
+- **Latest version** (always current): https://doi.org/10.5281/zenodo.19199918
+- **Version 1.1.0** (current release): https://zenodo.org/records/19712742
+- **Version 1.0.0-alpha**: https://zenodo.org/records/19199919
 
 Each parameter file contains 12 fields per region per gamma quantile:
 alpha, beta, their variance-covariance matrix, spatial correlation,
