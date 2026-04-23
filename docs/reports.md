@@ -111,5 +111,25 @@ Reports are hosted separately at [c1587s.github.io/flex-damage-reports](https://
 - [Wheat Spring](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html){target="_blank"}
 - [Wheat Winter](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html){target="_blank"}
 
+### Agriculture Value (Impact Regions)
+
+- [Combined (main spec)](https://c1587s.github.io/flex-damage-reports/agriculture_value_combined_main_spec_ir.html){target="_blank"}
+
+### Mortality (Impact Regions)
+
+- [All-cause all-age](https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html){target="_blank"}
+
+### Labor (Impact Regions)
+
+- [Combined](https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html){target="_blank"}
+- [High-risk](https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html){target="_blank"}
+- [Low-risk](https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html){target="_blank"}
+
+### Energy (Impact Regions)
+
+- [Total](https://c1587s.github.io/flex-damage-reports/energy_total_ir.html){target="_blank"}
+- [Electricity](https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html){target="_blank"}
+- [Non-electricity](https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html){target="_blank"}
+
 These open in a new tab as self-contained HTML files with interactive
 plots, maps, and scenario comparisons.
