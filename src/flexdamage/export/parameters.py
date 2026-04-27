@@ -147,12 +147,7 @@ def export_parameters(
             "name": config.run.name,
             "description": config.run.description,
         },
-        "sector": {
-            "name": config.sector.name,
-            "subsector": config.sector.subsector,
-            "units": config.sector.units,
-            "adaptation": config.sector.adaptation,
-        },
+        "sector": config.sector.model_dump(exclude_none=True),
         "estimation": {
             "formula": config.estimation.formula,
             "gamma_method": config.estimation.gamma.method,

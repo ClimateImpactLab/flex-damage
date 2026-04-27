@@ -246,7 +246,8 @@ class FlexDamagePipeline:
                 )
                 summary["timings"]["export"] = time.perf_counter() - start
                 summary["output_csv"] = str(output_paths["csv"])
-                summary["output_json"] = str(output_paths["json"])
+                summary["output_global_json"] = str(output_paths["global_json"])
+                summary["output_metadata_json"] = str(output_paths["metadata_json"])
 
         finally:
             # Step 7: Cleanup

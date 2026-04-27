@@ -32,11 +32,28 @@ class SectorSettings(BaseModel):
 
     name: str = Field(..., description="Sector name: agriculture, mortality, energy, labor")
     subsector: str = Field(..., description="Subsector: corn, heat, total, high_risk, etc.")
-    units: Literal["physical", "monetary"] = Field(
-        "physical", description="Output units type"
+    units: str = Field(
+        "physical",
+        description="Output units (e.g. 'physical', 'monetary', 'portion', 'deaths per 100k')",
     )
-    adaptation: Literal["na", "with_costs", "without_costs"] = Field(
-        "na", description="Adaptation assumption"
+    adaptation: str = Field(
+        "na",
+        description="Adaptation assumption (e.g. 'na', 'with_costs', 'without_costs', 'fulladapt')",
+    )
+    units_description: Optional[str] = Field(
+        None, description="Free-form description of the units / scaling of the outcome variable"
+    )
+    source_variable: Optional[str] = Field(
+        None, description="Name of the raw nc4 variable that feeds the y column"
+    )
+    source_nc4_main: Optional[str] = Field(
+        None, description="Filename of the main (full-adapt) nc4 used upstream"
+    )
+    source_nc4_hist: Optional[str] = Field(
+        None, description="Filename of the histclim nc4 used upstream"
+    )
+    methodology_ref: Optional[str] = Field(
+        None, description="Pointer to the methodology doc / section used"
     )
 
 
