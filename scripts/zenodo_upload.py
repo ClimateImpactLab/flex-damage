@@ -67,23 +67,28 @@ ZENODO_STATE_FILE = ".zenodo.json"
 # Impact Regions shapefile (included in Zenodo ZIP)
 IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
 
-# Sector configurations
+# Sector configurations (used for placeholder .gitkeep and sector READMEs;
+# actual datasets are discovered from filenames via parse_input_filename).
 SECTORS = {
     "agriculture": {
         "subsectors": ["corn", "rice", "soy", "sorghum", "cassava",
                        "wheat_combined", "wheat_spring", "wheat_winter"],
         "resolutions": ["ir"],
     },
+    "agriculture_value": {
+        "subsectors": ["combined_main_spec"],
+        "resolutions": ["ir"],
+    },
     "mortality": {
-        "subsectors": ["heat", "cold"],
-        "resolutions": ["ir", "country"],
+        "subsectors": ["allcause"],
+        "resolutions": ["ir"],
     },
     "energy": {
-        "subsectors": ["total"],
+        "subsectors": ["total", "electricity", "non_electricity"],
         "resolutions": ["ir"],
     },
     "labor": {
-        "subsectors": ["high_risk", "low_risk"],
+        "subsectors": ["combined", "high_risk", "low_risk"],
         "resolutions": ["ir"],
     },
 }
@@ -358,36 +363,47 @@ def generate_sector_readme(sector: str, datasets: List[dict]) -> str:
             "outcome": "Log change in crop yield relative to a no-climate-change baseline",
             "constraint": "beta <= 0 (concavity enforced, damages accelerate with warming)",
             "notes": [
-                "Yields are measured in metric tons per hectare",
                 "Impacts are relative to historical climate baseline (1980-2010)",
                 "Negative values indicate yield loss, positive values indicate gain",
             ],
         },
+        "agriculture_value": {
+            "units": "USD welfare cost per capita (DeltaWelfare = DeltaCS + DeltaPS)",
+            "outcome": "Change in agricultural welfare (across all crops, main_spec)",
+            "constraint": "beta <= 0 (concavity enforced)",
+            "notes": [
+                "Aggregated across rice, sorghum, cassava, soy, corn, wheat",
+                "Negative values indicate welfare loss (paper's DeltaWelfare convention)",
+                "Source: paper main_spec (eps_S=0.1, eps_D=-0.04, country markets, CO2 fert on)",
+            ],
+        },
         "mortality": {
             "units": "deaths per 100,000 population",
-            "outcome": "Change in mortality rate from temperature exposure",
-            "constraint": "None (both heat and cold mortality are modeled)",
+            "outcome": "Change in all-cause mortality rate from temperature exposure",
+            "constraint": "beta >= 0 (convexity, U-shaped response with adaptation costs)",
             "notes": [
-                "All-cause mortality by age group",
-                "Accounts for adaptation through income-dependent response",
+                "All-cause all-age mortality",
+                "Full adaptation with costs (Carleton et al. 2022 convention)",
             ],
         },
         "energy": {
-            "units": "GJ per capita per year",
+            "units": "kWh per capita (rebased to 2005 baseline)",
             "outcome": "Change in energy consumption from temperature deviation",
-            "constraint": "None",
+            "constraint": "beta >= 0 (convexity)",
             "notes": [
-                "Includes heating and cooling demand",
-                "Based on empirical energy-temperature relationships",
+                "Three subsectors: total, electricity, non_electricity",
+                "Positive values indicate more energy consumption",
+                "Fulladapt scenario (main - histclim)",
             ],
         },
         "labor": {
-            "units": "hours worked per worker per year",
+            "units": "portion (fraction of labor productivity, rebased to 2005)",
             "outcome": "Change in labor productivity from heat exposure",
-            "constraint": "None",
+            "constraint": "beta <= 0 (concavity)",
             "notes": [
-                "High-risk includes outdoor and physically demanding work",
-                "Low-risk includes indoor and climate-controlled work",
+                "Three subsectors: combined, high_risk, low_risk",
+                "Negative values indicate productivity loss",
+                "Fulladapt scenario",
             ],
         },
     }
@@ -751,6 +767,53 @@ def create_deposit(token: str, api_url: str, metadata: dict) -> dict:
     return response.json()
 
 
+def create_new_version(token: str, api_url: str, parent_id: int) -> dict:
+    """
+    Create a new version of an existing PUBLISHED deposit, linked via concept DOI.
+
+    Zenodo returns the new draft deposit object, including its bucket URL for
+    uploading files. The new draft shares a concept DOI with `parent_id`, so
+    once published, the concept DOI resolves to the latest version.
+    """
+    # Step 1: trigger newversion action on parent
+    r = requests.post(
+        f"{api_url}/deposit/depositions/{parent_id}/actions/newversion",
+        params={"access_token": token},
+    )
+    r.raise_for_status()
+    parent = r.json()
+    # The new draft URL is in latest_draft
+    draft_url = parent["links"]["latest_draft"]
+    # Fetch it
+    r2 = requests.get(draft_url, params={"access_token": token})
+    r2.raise_for_status()
+    draft = r2.json()
+    # New drafts inherit the parent's files. Delete them so we can upload fresh.
+    for f in draft.get("files", []):
+        fid = f["id"]
+        rd = requests.delete(
+            f"{api_url}/deposit/depositions/{draft['id']}/files/{fid}",
+            params={"access_token": token},
+        )
+        rd.raise_for_status()
+    # Re-fetch to get an updated (empty-files) view
+    r3 = requests.get(draft_url, params={"access_token": token})
+    r3.raise_for_status()
+    return r3.json()
+
+
+def update_deposit_metadata(token: str, api_url: str, deposit_id: int, metadata: dict) -> dict:
+    """Update metadata on an existing draft deposit."""
+    r = requests.put(
+        f"{api_url}/deposit/depositions/{deposit_id}",
+        params={"access_token": token},
+        json={"metadata": metadata},
+        headers={"Content-Type": "application/json"},
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 def upload_file_to_bucket(token: str, bucket_url: str, filename: str, data: bytes) -> dict:
     """Upload a file to a deposit bucket."""
     response = requests.put(
@@ -820,6 +883,9 @@ Examples:
                         help="Publish existing draft")
     parser.add_argument("--delete", type=int, metavar="ID",
                         help="Delete an existing draft deposit")
+    parser.add_argument("--new-version-of", type=int, metavar="ID",
+                        help="Create a new version linked to an existing published record. "
+                             "Produces a draft that shares the concept DOI. Use with --draft.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview what would be uploaded")
     parser.add_argument("--version", type=str,
@@ -912,14 +978,43 @@ Examples:
     # Generate README
     readme_content = generate_readme(args.version, datasets)
 
-    # Build ZIP
-    logger.info("Building ZIP file...")
-    zip_path, zip_contents, manifest_json = build_zip(
-        input_dir, args.version, output_dir, datasets
-    )
-    zip_size = zip_path.stat().st_size
+    # Build ZIP — skip if a fresh one already exists (saves ~2 min on re-runs).
+    # "Fresh" means the zip exists AND is newer than every input CSV.
+    expected_zip = output_dir / f"flexdamage-parameters-v{args.version}.zip"
+    skip_build = False
+    if expected_zip.exists() and not args.build:
+        zip_mtime = expected_zip.stat().st_mtime
+        newer_inputs = [d["csv_path"] for d in datasets
+                        if d["csv_path"].stat().st_mtime > zip_mtime]
+        if not newer_inputs:
+            skip_build = True
+            zip_path = expected_zip
+            zip_size = zip_path.stat().st_size
+            logger.info(f"Reusing existing ZIP: {zip_path} ({format_size(zip_size)})")
+            # We still need zip_contents and manifest_json for Zenodo upload.
+            # Rebuild the manifest by reading from the existing zip.
+            zip_contents = []
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for name in zf.namelist():
+                    info = zf.getinfo(name)
+                    if not info.is_dir():
+                        zip_contents.append({
+                            "archive_path": name,
+                            "size": info.file_size,
+                            "sha256": None,  # not recomputing; draft upload doesn't need it
+                            "sector": None,
+                            "subsector": None,
+                            "filetype": None,
+                        })
+                manifest_json = zf.read(f"flexdamage-parameters-v{args.version}/manifest.json").decode()
 
-    logger.info(f"Created {zip_path} ({format_size(zip_size)})")
+    if not skip_build:
+        logger.info("Building ZIP file...")
+        zip_path, zip_contents, manifest_json = build_zip(
+            input_dir, args.version, output_dir, datasets
+        )
+        zip_size = zip_path.stat().st_size
+        logger.info(f"Created {zip_path} ({format_size(zip_size)})")
 
     # Build only
     if args.build:
@@ -988,12 +1083,20 @@ Examples:
         api_url = get_api_url(args.sandbox)
         token = get_token(args.sandbox)
 
-        # Create deposit
-        logger.info("Creating Zenodo deposit...")
         zenodo_metadata = build_zenodo_metadata(args.version, readme_content)
-        deposit = create_deposit(token, api_url, zenodo_metadata)
 
-        deposit_id = deposit["id"]
+        if args.new_version_of:
+            logger.info(f"Creating NEW VERSION of existing record {args.new_version_of}...")
+            deposit = create_new_version(token, api_url, args.new_version_of)
+            deposit_id = deposit["id"]
+            # Apply updated metadata (version string, etc.)
+            update_deposit_metadata(token, api_url, deposit_id, zenodo_metadata)
+            logger.info(f"Linked to concept DOI of {args.new_version_of}. New draft id: {deposit_id}")
+        else:
+            logger.info("Creating Zenodo deposit (new record)...")
+            deposit = create_deposit(token, api_url, zenodo_metadata)
+            deposit_id = deposit["id"]
+
         bucket_url = deposit["links"]["bucket"]
 
         logger.info(f"Deposit ID: {deposit_id}")
