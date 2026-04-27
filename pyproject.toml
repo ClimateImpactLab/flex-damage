@@ -39,6 +39,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pyfixest>=0.25.0",
     "pyyaml>=6.0",
+    "requests>=2.28.0",
     "scipy>=1.10.0",
 ]
 
@@ -53,6 +54,7 @@ dev = [
 zarr = [
     "xarray>=2023.1.0",
     "zarr>=2.16.0",
+    "netcdf4>=1.6.0",
 ]
 diagnostics = [
     "matplotlib>=3.7.0",
