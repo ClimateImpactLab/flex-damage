@@ -1,0 +1,70 @@
+# =============================================================================
+# FlexDamage v3 - Energy Non-Electricity (other_energy) Configuration
+# =============================================================================
+# Constraint: beta >= 0 (convexity). CAVEAT: non_electricity (heating fuels)
+# tends to fall with warming (less heating needed in cold regions), so the
+# natural shape may be concave rather than convex. Keeping beta >= 0 for
+# consistency with total + electricity for now. Re-discuss with James; a
+# configuration with `type: max, value: 0` (concavity) may fit better.
+
+run:
+  name: energy_non_electricity_ir
+  description: "Non-electricity (other_energy) damages - Impact Region resolution"
+
+sector:
+  name: energy
+  subsector: non_electricity
+  units: "kWh_per_capita"
+  units_description: "kWh per capita, rebased to 2005 baseline (positive = more energy consumed); primarily heating fuels"
+  adaptation: fulladapt
+  source_variable: "rebased (other_energy main - histclim)"
+  source_nc4_main: "FD_FGLS_inter_OTHERIND_other_energy_TINV_clim.nc4"
+  source_nc4_hist: "FD_FGLS_inter_OTHERIND_other_energy_TINV_clim-histclim.nc4"
+  methodology_ref: "The art of rebasing and histclim (CIL, 2020) Section 2.3.1"
+
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/energy/full/energy_aggregated_full.parquet
+  format: parquet
+
+  columns:
+    y: energy_non_electricity
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 10
+    ridge_lambda: 1.0e-8
+
+  # beta >= 0 (convexity) - see header for caveat about non_electricity shape.
+  constraints:
+    - parameter: beta
+      type: min
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/energy/non_electricity
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 100

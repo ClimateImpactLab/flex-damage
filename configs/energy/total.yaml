@@ -1,0 +1,72 @@
+# =============================================================================
+# FlexDamage v3 - Energy Total (electricity + non_electricity) Configuration
+# =============================================================================
+# Source: median valuation outputs from energy_pixel_interaction (no batch
+# dimension in median path). fulladapt impact = main.rebased - histclim.rebased
+# per the CIL rebasing memo.
+#
+# Constraint: beta >= 0 (convexity). Expected U-shape: warming raises electricity
+# (AC) while lowering non_electricity (heating), but net total energy usage and
+# damages accelerate with warming. Same sign convention as mortality.
+
+run:
+  name: energy_total_ir
+  description: "Energy damages (electricity + non_electricity total) - Impact Region resolution"
+
+sector:
+  name: energy
+  subsector: total
+  units: "kWh_per_capita"
+  units_description: "kWh per capita, rebased to 2005 baseline (positive = more energy consumed)"
+  adaptation: fulladapt
+  source_variable: "rebased (electricity + other_energy, main - histclim)"
+  source_nc4_main: "FD_FGLS_inter_OTHERIND_<electricity|other_energy>_TINV_clim.nc4"
+  source_nc4_hist: "FD_FGLS_inter_OTHERIND_<electricity|other_energy>_TINV_clim-histclim.nc4"
+  methodology_ref: "The art of rebasing and histclim (CIL, 2020) Section 2.3.1"
+
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/energy/full/energy_aggregated_full.parquet
+  format: parquet
+
+  columns:
+    y: energy_total
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 10
+    ridge_lambda: 1.0e-8
+
+  # beta >= 0 (convexity). Total energy damage accelerates with warming.
+  constraints:
+    - parameter: beta
+      type: min
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/energy/total
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 100

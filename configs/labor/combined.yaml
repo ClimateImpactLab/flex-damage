@@ -1,0 +1,70 @@
+# =============================================================================
+# FlexDamage v3 - Labor Combined (all workers) Configuration
+# =============================================================================
+# Data: aggregated labor damages from build_labor_input.py
+# Full-adaptation impact = main.rebased - histclim.rebased (per CIL rebasing memo)
+# Constraint: beta <= 0 (concavity, inverted-U - impact curve bends down as
+# productivity losses accelerate with heat)
+
+run:
+  name: labor_combined_ir
+  description: "Labor productivity response estimation (all workers) - Impact Region resolution"
+
+sector:
+  name: labor
+  subsector: combined
+  units: "portion"
+  units_description: "dimensionless fraction of labor productivity, rebased to 2005 baseline (negative = productivity loss)"
+  adaptation: fulladapt
+  source_variable: "rebased"
+  source_nc4_main: "uninteracted_main_model.nc4"
+  source_nc4_hist: "uninteracted_main_model-histclim.nc4"
+  methodology_ref: "The art of rebasing and histclim (CIL, 2020), Section 2.3.1 and Addendum Section 4"
+
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/labor/full/labor_aggregated_full.parquet
+  format: parquet
+
+  columns:
+    y: labor_combined
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 10
+    ridge_lambda: 1.0e-8
+
+  # Labor uses beta <= 0 (concavity constraint)
+  # Productivity response bends down as heat stress accelerates losses
+  constraints:
+    - parameter: beta
+      type: max
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/labor/combined
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 100
