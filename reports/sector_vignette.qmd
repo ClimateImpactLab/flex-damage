@@ -1112,9 +1112,16 @@ if SOURCE_DATA.exists():
     df_raw = con.execute("SELECT * FROM raw").df()
     con.close()
 
-    # Find max year (likely 2098)
+    # Pick the max year where income is populated (avoid tail years where
+    # econ zarr doesn't cover and Y^gamma becomes NaN).
     if "year" in df_raw.columns:
-        target_year = int(df_raw["year"].max())
+        income_col_candidates = [c for c in ("gdppc", "income", "Y", "log_income") if c in df_raw.columns]
+        if income_col_candidates:
+            _ic = income_col_candidates[0]
+            valid_years = df_raw.loc[df_raw[_ic].notna(), "year"]
+            target_year = int(valid_years.max()) if len(valid_years) else int(df_raw["year"].max())
+        else:
+            target_year = int(df_raw["year"].max())
         print(f"Using year: {target_year}")
 
     rcps = sorted(df_raw["rcp"].dropna().unique()) if "rcp" in df_raw.columns else []
