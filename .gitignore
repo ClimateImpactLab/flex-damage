@@ -39,3 +39,5 @@ reports/_freeze/
 reports/_output/
 reports/sector_vignette.typ
 reports/sector_vignette_files/
+.tmp/
+.zenodo_out/
