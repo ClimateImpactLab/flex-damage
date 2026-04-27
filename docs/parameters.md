@@ -154,4 +154,4 @@ data. The concept DOI automatically resolves to the latest version.
 
 ### Citation
 
-Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.0.0-alpha) [Data set]. Zenodo. https://zenodo.org/records/19199919
+Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.1.0) [Data set]. Zenodo. https://zenodo.org/records/19712742
