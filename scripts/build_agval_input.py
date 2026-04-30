@@ -322,17 +322,21 @@ def main():
     df = join_climate(df, args.climate_csv, args.mode, gcms_used=gcms_used)
     df = join_econ(df, args.econ_zarr, args.mode)
 
-    # Rescale welfare cost to per-capita (USD/person). Raw values are in
-    # millions-to-billions of absolute USD, which blows up the gamma FE
-    # regression (gamma absorbs the scale and overflows Y^gamma downstream).
-    # Per-capita puts y on the same scale as log(Y), so gamma stays in [-1, 1].
-    if "pop" in df.columns:
+    # Rescale welfare cost to FRACTION OF REGIONAL GDP (dimensionless).
+    # Per-capita rescaling alone (USD/person) didn't work: gamma still
+    # absorbed the income-correlation of welfare loss (richer regions
+    # lose more dollars per person), pushing gamma to ~ -13 and blowing
+    # up Y^gamma in the regional step (10^-58 magnitude).
+    # wc / (gdppc * pop) = wc / GDP gives a dimensionless ratio that
+    # decouples from income scale.
+    if "pop" in df.columns and "gdppc" in df.columns:
         before_nan = df["wc_no_reallocation"].isna().sum()
-        df["wc_no_reallocation"] = df["wc_no_reallocation"] / df["pop"].replace(0, np.nan)
+        gdp_total = df["gdppc"] * df["pop"]
+        df["wc_no_reallocation"] = df["wc_no_reallocation"] / gdp_total.replace(0, np.nan)
         after_nan = df["wc_no_reallocation"].isna().sum()
-        log.info(f"Rescaled wc_no_reallocation to per-capita (added {after_nan - before_nan:,} NaN from pop=0)")
+        log.info(f"Rescaled wc_no_reallocation to fraction of regional GDP (added {after_nan - before_nan:,} NaN from gdp=0)")
     else:
-        log.warning("pop column missing; cannot rescale to per-capita - gamma estimation likely to fail")
+        log.warning("pop or gdppc column missing; cannot rescale to fraction-of-GDP - gamma estimation likely to fail")
 
     df = df.sort_values(["rcp", "ssp", "model", "region", "year"]).reset_index(drop=True)
     out_file = output_dir / f"agval_aggregated_{args.mode}.parquet"

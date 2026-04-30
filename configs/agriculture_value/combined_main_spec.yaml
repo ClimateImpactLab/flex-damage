@@ -20,7 +20,7 @@ sector:
   name: agriculture_value
   subsector: combined_main_spec
   units: "monetary"
-  units_description: "USD welfare cost per capita (DeltaWelfare / population, DeltaWelfare = DeltaCS + DeltaPS per paper Eq. K.1); negative = welfare loss"
+  units_description: "Fraction of regional GDP (DeltaWelfare / (gdppc * pop), where DeltaWelfare = DeltaCS + DeltaPS per paper Eq. K.1); negative = welfare loss"
   adaptation: fulladapt
   source_variable: "wc_no_reallocation"
   source_nc4_main: "disaggregated_damages.nc4"
