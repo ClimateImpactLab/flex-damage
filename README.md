@@ -1,6 +1,6 @@
 # flex-damage
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19916065.svg)](https://doi.org/10.5281/zenodo.19916065)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19199918.svg)](https://doi.org/10.5281/zenodo.19199918)
 
 [Documentation](https://climateimpactlab.github.io/flex-damage/paper.html) |
 [Developer docs](https://climateimpactlab.github.io/flex-damage/) |
