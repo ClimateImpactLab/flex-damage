@@ -98,38 +98,62 @@ sector/subsector combination.
 
 ## Available reports
 
-Reports are hosted separately at [c1587s.github.io/flex-damage-reports](https://c1587s.github.io/flex-damage-reports/).
+Reports are hosted at [c1587s.github.io/flex-damage-reports](https://c1587s.github.io/flex-damage-reports/). That page has a sortable index by sector with both Impact Region and Country resolution links side by side.
 
-### Agriculture (Impact Regions)
+### Sectors covered
 
-- [Cassava](https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html){target="_blank"}
-- [Corn](https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html){target="_blank"}
-- [Rice](https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html){target="_blank"}
-- [Sorghum](https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html){target="_blank"}
-- [Soy](https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html){target="_blank"}
-- [Wheat Combined](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html){target="_blank"}
-- [Wheat Spring](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html){target="_blank"}
-- [Wheat Winter](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html){target="_blank"}
+| Sector | Subsectors | Resolutions |
+|---|---|---|
+| Agriculture | corn, rice, soy, sorghum, cassava, wheat_combined, wheat_spring, wheat_winter | IR, country |
+| Mortality | allcause | IR, country |
+| Labor | combined, high_risk, low_risk | IR, country |
+| Energy | total, electricity, non_electricity | IR, country, country (unconstrained, diagnostic) |
 
-### Agriculture Value (Impact Regions)
+### Direct links
 
-- [Combined (main spec)](https://c1587s.github.io/flex-damage-reports/agriculture_value_combined_main_spec_ir.html){target="_blank"}
+#### Agriculture
 
-### Mortality (Impact Regions)
+| Crop | Impact Region | Country |
+|---|---|---|
+| Cassava | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_cassava_country.html){target="_blank"} |
+| Corn | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_corn_country.html){target="_blank"} |
+| Rice | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_rice_country.html){target="_blank"} |
+| Sorghum | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_country.html){target="_blank"} |
+| Soy | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_soy_country.html){target="_blank"} |
+| Wheat (combined) | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_country.html){target="_blank"} |
+| Wheat (spring) | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_country.html){target="_blank"} |
+| Wheat (winter) | [IR](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_country.html){target="_blank"} |
 
-- [All-cause all-age](https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html){target="_blank"}
+#### Mortality
 
-### Labor (Impact Regions)
+| Subsector | Impact Region | Country |
+|---|---|---|
+| All-cause all-age | [IR](https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/mortality_allcause_country.html){target="_blank"} |
 
-- [Combined](https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html){target="_blank"}
-- [High-risk](https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html){target="_blank"}
-- [Low-risk](https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html){target="_blank"}
+#### Labor
 
-### Energy (Impact Regions)
+| Subsector | Impact Region | Country |
+|---|---|---|
+| Combined | [IR](https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/labor_combined_country.html){target="_blank"} |
+| High-risk workers | [IR](https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/labor_high_risk_country.html){target="_blank"} |
+| Low-risk workers | [IR](https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/labor_low_risk_country.html){target="_blank"} |
 
-- [Total](https://c1587s.github.io/flex-damage-reports/energy_total_ir.html){target="_blank"}
-- [Electricity](https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html){target="_blank"}
-- [Non-electricity](https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html){target="_blank"}
+#### Energy
 
-These open in a new tab as self-contained HTML files with interactive
-plots, maps, and scenario comparisons.
+| Subsector | Impact Region | Country | Country (unconstrained, diagnostic) |
+|---|---|---|---|
+| Total | [IR](https://c1587s.github.io/flex-damage-reports/energy_total_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/energy_total_country.html){target="_blank"} | [Unconstrained](https://c1587s.github.io/flex-damage-reports/energy_total_country_unconstrained.html){target="_blank"} |
+| Electricity | [IR](https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/energy_electricity_country.html){target="_blank"} | [Unconstrained](https://c1587s.github.io/flex-damage-reports/energy_electricity_country_unconstrained.html){target="_blank"} |
+| Non-electricity | [IR](https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html){target="_blank"} | [Country](https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country.html){target="_blank"} | [Unconstrained](https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country_unconstrained.html){target="_blank"} |
+
+The unconstrained energy reports drop the `β ≥ 0` convexity constraint.
+Compare them with the constrained `country` versions to see where the
+constraint is binding (`β = 0` in the constrained run, `β` non-zero in
+the unconstrained run). For non_electricity in particular the
+unconstrained fit gives more regions concave `β` values, but tropical
+countries' positive raw signal is still not recovered. That is a
+structural limit of the flex form against pop-weighted country data,
+not a constraint problem.
+
+These open as self-contained HTML files with interactive plots, country
+maps, and scenario comparisons.
