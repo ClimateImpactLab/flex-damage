@@ -25,7 +25,12 @@ run:
 sector:
   name: mortality
   subsector: allcause
-  units: "physical"
+  units: "deaths_per_100k"
+  units_description: "Excess all-cause all-age deaths per 100,000 person-years attributable to climate change (full adaptation including adaptation costs); computed as main.rebased + costs/100k - histclim.rebased, where rebased uses the 2005 baseline."
+  source_variable: "rebased + costs/100k - histclim.rebased"
+  source_nc4_main: "Agespec_interaction_response-combined-aggregated.nc4"
+  source_nc4_hist: "Agespec_interaction_response-combined-histclim-aggregated.nc4"
+  methodology_ref: "Carleton et al. (2022) QJE; CIL 'art of rebasing and histclim' (2020) Section 2.3.1"
   adaptation: with_costs
 
 data:
