@@ -198,7 +198,31 @@ def collect_datasets(input_dir: Path) -> List[dict]:
             continue
 
         sector, subsector = parsed
-        key = (sector, subsector)
+
+        # Skip variants we don't publish to Zenodo:
+        #   * `_country_collapsed` is methodologically equivalent to `_country`
+        #     for sectors with no MC dim (energy) and a noisy duplicate for
+        #     sectors with MC (mortality / labor / agriculture). We ship the
+        #     non-collapsed version as the country reference.
+        #   * `agriculture_value` (agval) is excluded per project decision.
+        if subsector.endswith("_country_collapsed"):
+            continue
+        if sector == "agriculture_value" or sector.startswith("agval"):
+            continue
+
+        # Resolution is encoded in the subsector suffix. We split it out so
+        # the zip lays out cleanly as <sector>/{ir,country,country_unconstrained}/<sub>/
+        if subsector.endswith("_country_unconstrained"):
+            resolution = "country_unconstrained"
+            sub_clean = subsector[: -len("_country_unconstrained")]
+        elif subsector.endswith("_country"):
+            resolution = "country"
+            sub_clean = subsector[: -len("_country")]
+        else:
+            resolution = "ir"
+            sub_clean = subsector
+
+        key = (sector, sub_clean, resolution)
         if key in seen:
             continue
         seen.add(key)
@@ -248,13 +272,17 @@ def collect_datasets(input_dir: Path) -> List[dict]:
                 n_regions = meta["output_stats"].get("n_regions", 0)
                 n_quantiles = meta["output_stats"].get("n_gamma_quantiles", 19)
 
+        # Per-sub README sibling (e.g. mortality__allcause_country__README.md)
+        readme_path = input_dir / f"{base}__README.md"
+
         datasets.append({
             "sector": sector,
-            "subsector": subsector,
-            "resolution": "ir",  # Default, can be extended
+            "subsector": sub_clean,
+            "resolution": resolution,
             "csv_path": csv_path,
             "global_path": global_path if global_path and global_path.exists() else None,
             "meta_path": meta_path if meta_path.exists() else None,
+            "readme_path": readme_path if readme_path.exists() else None,
             "gamma": gamma,
             "gamma_se": gamma_se,
             "r_squared": r_squared,
@@ -339,6 +367,37 @@ the variance-covariance matrix of (alpha, beta). rho is the correlation with
 global residuals. zeta and eta describe the temperature-dependent and residual
 error scales. rsqr1 and rsqr2 measure the polynomial and error model fit.
 
+## Downloading via the Zenodo API
+
+You can fetch this dataset programmatically with the Zenodo REST API. The
+record's metadata (including a list of files and their direct URLs) is
+available at:
+
+    https://zenodo.org/api/records/<record_id>
+
+Replace <record_id> with the numeric id of this version (visible in the URL
+of the Zenodo landing page). Example with curl + jq:
+
+    curl -s "https://zenodo.org/api/records/<record_id>" \\
+      | jq -r '.files[] | "\\(.links.self) \\(.key)"' \\
+      | while read url name; do curl -L -o "$name" "$url"; done
+
+Or in Python:
+
+    import requests
+    r = requests.get("https://zenodo.org/api/records/<record_id>").json()
+    for f in r["files"]:
+        out = f["key"]
+        print("downloading", out)
+        with requests.get(f["links"]["self"], stream=True) as resp:
+            resp.raise_for_status()
+            with open(out, "wb") as fh:
+                for chunk in resp.iter_content(8192):
+                    fh.write(chunk)
+
+The "concept DOI" (10.5281/zenodo.<concept_id>) always resolves to the
+latest version; the "version DOI" pins to this specific release.
+
 ## License
 
 CC-BY-4.0
@@ -350,142 +409,144 @@ Climate Impact Lab: https://github.com/ClimateImpactLab/flex-damage
 
 
 def generate_sector_readme(sector: str, datasets: List[dict]) -> str:
-    """Generate sector-specific README.md content (pure ASCII only)."""
+    """Generate ONE README per sector covering both IR and country resolutions
+    in a compact non-repetitive way. Units are taken verbatim from the
+    underlying projection-system nc4 attributes."""
 
     sector_datasets = [d for d in datasets if d["sector"] == sector]
     if not sector_datasets:
         return ""
 
-    # Sector-specific configurations
+    # Units string is the actual `units` attribute on the `rebased` variable
+    # in the projection system's nc4 file (or its country-aggregated sibling
+    # where that differs from the IR-level unit).
     sector_configs = {
         "agriculture": {
-            "units": "log yield impact (dimensionless, relative to baseline)",
-            "outcome": "Log change in crop yield relative to a no-climate-change baseline",
-            "constraint": "beta <= 0 (concavity enforced, damages accelerate with warming)",
+            "units": "log kg / Ha (log change in crop yield, rebased to 2005)",
+            "outcome": "Log change in crop yield (kg per hectare) relative to a no-climate-change baseline",
+            "constraint": "beta <= 0 (concavity, damages accelerate beyond optimum temperature)",
             "notes": [
-                "Impacts are relative to historical climate baseline (1980-2010)",
                 "Negative values indicate yield loss, positive values indicate gain",
             ],
         },
-        "agriculture_value": {
-            "units": "USD welfare cost per capita (DeltaWelfare = DeltaCS + DeltaPS)",
-            "outcome": "Change in agricultural welfare (across all crops, main_spec)",
-            "constraint": "beta <= 0 (concavity enforced)",
-            "notes": [
-                "Aggregated across rice, sorghum, cassava, soy, corn, wheat",
-                "Negative values indicate welfare loss (paper's DeltaWelfare convention)",
-                "Source: paper main_spec (eps_S=0.1, eps_D=-0.04, country markets, CO2 fert on)",
-            ],
-        },
         "mortality": {
-            "units": "deaths per 100,000 population",
-            "outcome": "Change in all-cause mortality rate from temperature exposure",
+            "units": "deaths per 100,000 person-years",
+            "outcome": "Excess all-cause all-age deaths per 100,000 person-years attributable to climate change (full adaptation including adaptation costs)",
             "constraint": "beta >= 0 (convexity, U-shaped response with adaptation costs)",
             "notes": [
-                "All-cause all-age mortality",
-                "Full adaptation with costs (Carleton et al. 2022 convention)",
+                "All-cause all-age mortality with full-adaptation costs (Carleton et al. 2022 QJE)",
+                "Positive values = excess deaths attributable to climate change",
             ],
         },
         "energy": {
-            "units": "kWh per capita (rebased to 2005 baseline)",
-            "outcome": "Change in energy consumption from temperature deviation",
+            "units": "kWh per capita (rebased to 2005)",
+            "outcome": "Change in energy consumption per capita driven by temperature anomaly",
             "constraint": "beta >= 0 (convexity)",
             "notes": [
                 "Three subsectors: total, electricity, non_electricity",
-                "Positive values indicate more energy consumption",
-                "Fulladapt scenario (main - histclim)",
+                "Positive values = additional consumption attributable to climate change",
             ],
         },
         "labor": {
-            "units": "portion (fraction of labor productivity, rebased to 2005)",
-            "outcome": "Change in labor productivity from heat exposure",
+            "units": "minutes per worker per day",
+            "outcome": "Change in productive minutes per worker per day attributable to heat exposure",
             "constraint": "beta <= 0 (concavity)",
             "notes": [
-                "Three subsectors: combined, high_risk, low_risk",
-                "Negative values indicate productivity loss",
-                "Fulladapt scenario",
+                "Three subsectors: combined (all workers), high_risk, low_risk",
+                "Negative values = productivity loss; positive = small gains in some temperate countries",
+                "Available SSPs: SSP2, SSP3, SSP4",
             ],
         },
     }
 
     config = sector_configs.get(sector, {
-        "units": "sector-specific units",
-        "outcome": "Sector-specific outcome measure",
-        "constraint": "See metadata.json for details",
+        "ir_units": "see metadata.json",
+        "country_units": "see metadata.json",
+        "outcome": "See metadata.json for sector-specific details",
+        "constraint": "See metadata.json",
         "notes": [],
     })
 
-    # Build subsector table
-    rows = []
-    for d in sorted(sector_datasets, key=lambda x: x["subsector"]):
-        gamma = f"{d['gamma']:.4f}" if d.get("gamma") else "--"
-        se = f"{d['gamma_se']:.4f}" if d.get("gamma_se") else "--"
-        r2 = f"{d['r_squared']:.3f}" if d.get("r_squared") else "--"
-        regions = f"{d['n_regions']:,}" if d.get("n_regions") else "--"
-        quantiles = d.get("n_quantiles", 19)
-        rows.append(
-            f"| {d['subsector'].replace('_', ' ').title()} | {gamma} | {se} | "
-            f"{regions} | {quantiles} | {r2} |"
-        )
+    # Subsector x Resolution table: every subsector once with both IR and
+    # country numbers side by side so external users see the relationship at
+    # Group datasets by subsector so the usage example below can pick one.
+    by_sub = {}
+    for d in sector_datasets:
+        by_sub.setdefault(d["subsector"], {})[d["resolution"]] = d
 
-    subsector_table = "\n".join(rows)
+    notes_text = "\n".join(f"- {n}" for n in config["notes"]) or "- See per-(sub, resolution) metadata.json for run details"
+    ex_sub = sorted(by_sub)[0]  # an arbitrary subsector for the usage example
 
-    notes_text = "\n".join(f"- {note}" for note in config.get("notes", []))
-    if not notes_text:
-        notes_text = "- See metadata.json for sector-specific details"
+    return f"""# {sector.title()}: flexible damage function parameters
 
-    return f"""# {sector.title()} Sector Parameters
+## Outcome variable
 
-## Units
+{config['outcome']}
 
-Outcome variable: {config['outcome']}
+**Units:** {config['units']}
 
-Units: {config['units']}
+Available at two spatial resolutions: impact region (`ir/`) and country (`country/`).
 
-## Input Variables
+## Damage function
 
-- Temperature (T): Global mean temperature anomaly from pre-industrial
-  (degrees Celsius)
-- Income (Y): GDP per capita (2020 USD PPP)
+```
+D(T, Y) = (alpha * T + beta * T^2) * Y^gamma
+```
 
-## Constraint Applied
+| Symbol | Meaning | Units |
+|--------|---------|-------|
+| D      | outcome | as above |
+| T      | local temperature anomaly | degrees Celsius vs 1986-2005 climatology |
+| Y      | GDP per capita | 2005 USD PPP per capita |
+| alpha  | linear coefficient | outcome-units / degC |
+| beta   | quadratic coefficient | outcome-units / degC^2 |
+| gamma  | global income elasticity | dimensionless |
+
+## Constraint
 
 {config['constraint']}
-
-## Subsectors
-
-| Subsector | gamma | SE(gamma) | Regions | Quantiles | R^2 |
-|-----------|-------|-----------|---------|-----------|-----|
-{subsector_table}
 
 ## Notes
 
 {notes_text}
 
-## File Structure
+## File layout (per subsector / resolution)
 
-Each subsector directory contains:
+```
+{sector}/
+  ir/<subsector>/
+    regional_parameters.csv   # 12 columns, 19 rows per region
+    global_results.json       # gamma + SE + 19 quantiles + R^2
+    metadata.json             # run config + summary statistics
+  country/<subsector>/
+    regional_parameters.csv
+    global_results.json
+    metadata.json
+```
 
-- regional_parameters.csv: 12 columns, 19 rows per region
-- global_results.json: gamma estimate, SE, R-squared, quantiles
-- metadata.json: run configuration and summary statistics
+## Usage example
 
-## Usage Example
+```python
+import pandas as pd
 
-    import pandas as pd
+# Pick the median-gamma row per region (single representative parameter set)
+def median_gamma_rows(df):
+    g = df["gamma"].median()
+    d = df.copy()
+    d["_dist"] = (d["gamma"] - g).abs()
+    return (d.sort_values("_dist")
+              .drop_duplicates(subset=["region"], keep="first")
+              .drop(columns=["_dist"]))
 
-    # Load corn parameters
-    df = pd.read_csv("ir/corn/regional_parameters.csv")
+df = pd.read_csv("country/{ex_sub}/regional_parameters.csv")
+df_med = median_gamma_rows(df)
 
-    # Filter to median gamma
-    median_gamma = df["gamma"].median()
-    df_med = df[abs(df["gamma"] - median_gamma) < 0.0001]
-
-    # Compute impact for region USA.14.648 at T=3C, Y=$50,000
-    row = df_med[df_med["region"] == "USA.14.648"].iloc[0]
-    T, Y = 3.0, 50000
-    M = (row["alpha"] * T + row["beta"] * T**2) * Y**row["gamma"]
-    print(f"Impact: {{M:.4f}}")
+# Compute impact at T=3C, Y=$60,000 (2005 USD PPP), region BRA
+row = df_med[df_med["region"] == "BRA"].iloc[0]
+T, Y = 3.0, 60_000
+D = (row["alpha"] * T + row["beta"] * T**2) * Y ** row["gamma"]
+print(f"D = {{D:.4g}}")
+```
 """
 
 
@@ -619,6 +680,10 @@ def build_zip(
                     "filetype": "metadata",
                 })
 
+        # Per-(sector, sub, resolution) README inclusion removed. We ship a
+        # single sector README that covers IR + country in one document,
+        # generated below.
+
         # Add per-sector README files
         sectors_with_data = set(d["sector"] for d in datasets)
         for sector in sectors_with_data:
@@ -648,10 +713,13 @@ def build_zip(
             "filetype": "readme",
         })
 
-        # Create empty placeholder directories for future sectors
+        # Create empty placeholder directories for future sectors. Skip
+        # `agriculture_value` (agval): it's explicitly excluded from this
+        # bundle so we don't want an empty folder advertising it either.
         for sector, config in SECTORS.items():
+            if sector == "agriculture_value" or sector.startswith("agval"):
+                continue
             for res in config["resolutions"]:
-                # Add .gitkeep to ensure directory exists in zip
                 placeholder_path = f"{base_dir}/{sector}/{res}/.gitkeep"
                 if not any(c["archive_path"].startswith(f"{base_dir}/{sector}/{res}/")
                           for c in zip_contents):
@@ -978,7 +1046,7 @@ Examples:
     # Generate README
     readme_content = generate_readme(args.version, datasets)
 
-    # Build ZIP — skip if a fresh one already exists (saves ~2 min on re-runs).
+    # Build ZIP. Skip if a fresh one already exists (saves ~2 min on re-runs).
     # "Fresh" means the zip exists AND is newer than every input CSV.
     expected_zip = output_dir / f"flexdamage-parameters-v{args.version}.zip"
     skip_build = False

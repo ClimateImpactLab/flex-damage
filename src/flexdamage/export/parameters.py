@@ -25,7 +25,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import pandas as pd
 
@@ -173,11 +173,98 @@ def export_parameters(
 
     logger.info(f"Exported metadata to {metadata_json_path}")
 
+    # Write per-sector README documenting units, methodology, file layout
+    readme_path = output_dir / f"{filename_base}__README.md"
+    readme_path.write_text(_render_readme(filename_base, metadata, global_results_data))
+    logger.info(f"Exported README to {readme_path}")
+
     return {
         "csv": csv_path,
         "global_json": global_json_path,
         "metadata_json": metadata_json_path,
+        "readme": readme_path,
     }
+
+
+def _render_readme(filename_base: str, metadata: Dict, global_results: Dict) -> str:
+    """Build a Markdown README summarising units, methodology, and file layout
+    so an external user opening the parameter bundle has full context without
+    having to read the codebase."""
+    sec = metadata.get("sector", {})
+    est = metadata.get("estimation", {})
+    out = metadata.get("output_stats", {})
+    name = sec.get("name", "?")
+    sub = sec.get("subsector", "?")
+    resolution = sec.get("resolution", "ir")
+    units = sec.get("units", "(missing, please file an issue)")
+    units_desc = sec.get("units_description", "(missing, please file an issue)")
+    formula = est.get("formula", "alpha * T + beta * T**2")
+    constraints = est.get("constraints", [])
+    n_reg = out.get("n_regions", "?")
+    n_q = out.get("n_gamma_quantiles", "?")
+    gamma = global_results.get("gamma")
+    gamma_se = global_results.get("gamma_se")
+    r2 = global_results.get("r_squared")
+
+    constraint_lines = "\n".join(
+        f"  - {c.get('parameter')}: {c.get('type')} {c.get('value')}" for c in constraints
+    ) or "  (none)"
+
+    return f"""# {name.title()} ({sub}): flexible damage function parameters
+
+**Resolution:** {resolution.title()}
+**Generated:** {metadata.get("generated_at", "(unknown)")}
+**flexdamage version:** {metadata.get("flexdamage_version", "?")}
+
+## Damage function
+
+```
+D(T, Y) = ({formula}) * Y^gamma
+```
+
+- **D**: outcome (units below).
+- **T**: local temperature anomaly in degrees Celsius, relative to the 1986 to 2005 climatology.
+- **Y**: GDP per capita, **2005 USD PPP**.
+- **alpha**, **beta**: region-specific coefficients in this CSV.
+- **gamma**: globally-fitted income elasticity (single value for this run, see `__global_results.json`).
+
+## Outcome variable
+
+- **Units:** `{units}`
+- **Description:** {units_desc}
+
+## Files in this bundle
+
+| File | Contents |
+|------|----------|
+| `{filename_base}__regional_parameters.csv` | One row per (region, gamma quantile). Columns: region, gamma, alpha, beta, sigma11, sigma12, sigma22, rho, zeta, eta, rsqr1, rsqr2. |
+| `{filename_base}__global_results.json` | Globally-fitted gamma plus standard errors and 19 quantile values. |
+| `{filename_base}__metadata.json` | Run configuration and summary statistics. |
+| `{filename_base}__README.md` | This file. |
+
+### Parameter columns (regional CSV)
+
+| Column | Meaning | Units |
+|--------|---------|-------|
+| `region` | Hierarchical region code (resolution: {resolution}). | n/a |
+| `gamma` | Income-elasticity quantile assigned to this row. | dimensionless |
+| `alpha` | Linear-in-T coefficient. | `{units}` per °C |
+| `beta` | Quadratic-in-T coefficient. | `{units}` per °C² |
+| `sigma11`, `sigma12`, `sigma22` | Covariance of (alpha, beta). | (alpha, beta) units squared |
+| `rho` | Correlation of (alpha, beta). | dimensionless |
+| `zeta`, `eta` | Standard errors of alpha, beta. | (alpha, beta) units |
+| `rsqr1`, `rsqr2` | R² of polynomial fit (raw, scenario-weighted). | dimensionless |
+
+## Estimation summary
+
+- **Regions:** {n_reg}
+- **Gamma quantiles:** {n_q}
+- **Globally-fitted gamma:** {gamma:.6g}{f' (SE: {gamma_se:.4g})' if gamma_se else ''}
+- **Global R²:** {r2:.4f}{'' if r2 is None else ''}
+- **Constraints applied:**
+{constraint_lines}
+"""
+
 
 
 def _compute_summary_stats(df: pd.DataFrame) -> Dict:
