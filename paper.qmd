@@ -1,0 +1,32 @@
+---
+title: "FlexDamage: Flexible Damage Function Estimation for Climate Impact Assessment"
+author: "Climate Impact Lab"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "Contents"
+    number-sections: true
+    number-depth: 3
+    embed-resources: true
+    theme: cosmo
+    css: paper.css
+    fig-cap-location: bottom
+    code-overflow: wrap
+    link-external-newwindow: true
+mainfont: "Charter, Georgia, serif"
+---
+
+{{< include index.md >}}
+
+{{< include methodology.md >}}
+
+{{< include units.md >}}
+
+{{< include parameters.md >}}
+
+{{< include pipeline.md >}}
+
+{{< include reports.md >}}
