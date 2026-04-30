@@ -556,19 +556,19 @@ bundles and the upstream sources they come from.</p>
 <td><strong>labor</strong></td>
 <td>combined</td>
 <td><code>mins/worker/day</code></td>
-<td>Change in productive minutes per worker per day for all workers. Negative = productivity loss; positive = gain. The IR-level nc4 mislabels this as "portion" but values are numerically identical to the projection system's pop-aggregated <code>mins/worker/day</code> convention.</td>
+<td>Change in productive minutes per worker per day for all workers. Negative values indicate productivity loss; positive values indicate gain.</td>
 </tr>
 <tr>
 <td><strong>labor</strong></td>
 <td>high_risk</td>
 <td><code>mins/worker/day</code></td>
-<td>Same as combined for the high-heat-exposure worker subpopulation.</td>
+<td>Same as combined, for the high-heat-exposure worker subpopulation.</td>
 </tr>
 <tr>
 <td><strong>labor</strong></td>
 <td>low_risk</td>
 <td><code>mins/worker/day</code></td>
-<td>Same as combined for the low-heat-exposure worker subpopulation.</td>
+<td>Same as combined, for the low-heat-exposure worker subpopulation.</td>
 </tr>
 <tr>
 <td><strong>energy</strong></td>
@@ -599,7 +599,7 @@ bundles and the upstream sources they come from.</p>
 <p>Sign conventions:</p>
 <ul>
 <li><strong>Mortality:</strong> positive <span class="arithmatex">\(D\)</span> = excess deaths.</li>
-<li><strong>Labor:</strong> negative <span class="arithmatex">\(D\)</span> = productivity loss (typical sign under warming, hot countries); positive <span class="arithmatex">\(D\)</span> = small gain (occasional in temperate countries).</li>
+<li><strong>Labor:</strong> negative <span class="arithmatex">\(D\)</span> means productivity loss (typical sign under warming for hot countries); positive <span class="arithmatex">\(D\)</span> means small gain (occasional in temperate countries).</li>
 <li><strong>Energy (total / electricity):</strong> positive <span class="arithmatex">\(D\)</span> = more energy consumed.</li>
 <li><strong>Energy (non-electricity):</strong> typically negative under warming.</li>
 <li><strong>Agriculture:</strong> negative <span class="arithmatex">\(D\)</span> = yield decline.</li>
@@ -622,9 +622,9 @@ bundles and the upstream sources they come from.</p>
 <h2 id="resolution">Resolution<a class="headerlink" href="#resolution" title="Permanent link">&para;</a></h2>
 <p>Parameters are estimated and published at two resolutions:</p>
 <ul>
-<li><strong>Impact Region (IR)</strong> — ~24,000 sub-national regions defined by the CIL
+<li><strong>Impact Region (IR)</strong>: ~24,000 sub-national regions defined by the CIL
   region hierarchy. The default scientific resolution.</li>
-<li><strong>Country</strong> — 245–253 country codes (ISO3-equivalent), aggregated from
+<li><strong>Country</strong>: 245 to 253 country codes (ISO3-equivalent), aggregated from
   IRs by population-weighted mean of per-IR rates (mortality, labor) or
   population-weighted mean of per-IR per-capita values (energy). Agriculture
   uses the projection system's own country aggregation in the
@@ -660,7 +660,7 @@ pre-aggregated country file.</p>
 </tr>
 <tr>
 <td><code>&lt;sector&gt;__&lt;sub&gt;__README.md</code></td>
-<td>Per-sector unit summary and provenance — <strong>read this first</strong></td>
+<td>Per-sector unit summary and provenance</td>
 </tr>
 </tbody>
 </table>

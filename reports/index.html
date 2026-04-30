@@ -676,7 +676,7 @@ for each RCP/SSP combination.</p>
 <p>Reports are self-contained HTML files. Each report covers one
 sector/subsector combination.</p>
 <h2 id="available-reports">Available reports<a class="headerlink" href="#available-reports" title="Permanent link">&para;</a></h2>
-<p>Reports are hosted at <a href="https://c1587s.github.io/flex-damage-reports/">c1587s.github.io/flex-damage-reports</a> — that page has a sortable index by sector with both <strong>Impact Region</strong> and <strong>Country</strong> resolution links side-by-side. For energy you'll also find <strong>Country (unconstrained)</strong> diagnostic reports that drop the <code>β ≥ 0</code> convexity constraint.</p>
+<p>Reports are hosted at <a href="https://c1587s.github.io/flex-damage-reports/">c1587s.github.io/flex-damage-reports</a>. That page has a sortable index by sector with both Impact Region and Country resolution links side by side.</p>
 <h3 id="sectors-covered">Sectors covered<a class="headerlink" href="#sectors-covered" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -705,7 +705,7 @@ sector/subsector combination.</p>
 <tr>
 <td>Energy</td>
 <td>total, electricity, non_electricity</td>
-<td>IR, country, <strong>country (unconstrained — diagnostic)</strong></td>
+<td>IR, country, country (unconstrained, diagnostic)</td>
 </tr>
 </tbody>
 </table>
@@ -813,7 +813,7 @@ sector/subsector combination.</p>
 <th>Subsector</th>
 <th>Impact Region</th>
 <th>Country</th>
-<th>Country — unconstrained (diagnostic)</th>
+<th>Country (unconstrained, diagnostic)</th>
 </tr>
 </thead>
 <tbody>
@@ -839,11 +839,12 @@ sector/subsector combination.</p>
 </table>
 <p>The unconstrained energy reports drop the <code>β ≥ 0</code> convexity constraint.
 Compare them with the constrained <code>country</code> versions to see where the
-constraint is binding (β = 0 in the constrained run, β ≠ 0 in the
-unconstrained run). For non_electricity in particular the unconstrained
-fit gives more regions concave β values, but tropical countries' positive
-raw signal is still not recovered — that's a structural limit of the
-flex form against pop-weighted country data, not a constraint problem.</p>
+constraint is binding (<code>β = 0</code> in the constrained run, <code>β</code> non-zero in
+the unconstrained run). For non_electricity in particular the
+unconstrained fit gives more regions concave <code>β</code> values, but tropical
+countries' positive raw signal is still not recovered. That is a
+structural limit of the flex form against pop-weighted country data,
+not a constraint problem.</p>
 <p>These open as self-contained HTML files with interactive plots, country
 maps, and scenario comparisons.</p>
 
