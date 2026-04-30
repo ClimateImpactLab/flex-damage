@@ -37,7 +37,9 @@ Thumbs.db
 reports/.quarto/
 reports/_freeze/
 reports/_output/
+reports/_runs/
 reports/sector_vignette.typ
 reports/sector_vignette_files/
+slurm/logs/
 .tmp/
 .zenodo_out/
