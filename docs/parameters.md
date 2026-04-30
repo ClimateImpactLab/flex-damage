@@ -35,8 +35,9 @@ use the concept DOI.
 
 ### Current release
 
-| Version | Date | DOI | Sectors |
+| Version | Date | DOI | What's new |
 |---------|------|-----|---------|
+| 1.3.0 | 2026-04-30 | [10.5281/zenodo.19916065](https://zenodo.org/records/19916065) | Country-resolution variants for every sector (IR + country side-by-side); `country_unconstrained` diagnostic for energy; cleaned units (labor → mins/worker/day, GDP basis = 2005 USD PPP); per-sector README with units in the Zenodo bundle |
 | 1.1.0 | 2026-04-23 | [10.5281/zenodo.19712742](https://zenodo.org/records/19712742) | All sectors: agriculture (8 crops), mortality (allcause), labor (3), energy (3) |
 | 1.0.0-alpha | 2026-03-22 | [10.5281/zenodo.19199919](https://zenodo.org/records/19199919) | Agriculture (8 crops) |
 
@@ -154,4 +155,4 @@ data. The concept DOI automatically resolves to the latest version.
 
 ### Citation
 
-Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.1.0) [Data set]. Zenodo. https://zenodo.org/records/19712742
+Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.3.0) [Data set]. Zenodo. https://zenodo.org/records/19916065

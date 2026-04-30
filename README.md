@@ -1,6 +1,6 @@
 # flex-damage
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19225233.svg)](https://doi.org/10.5281/zenodo.19225233)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19916065.svg)](https://doi.org/10.5281/zenodo.19916065)
 
 [Documentation](https://climateimpactlab.github.io/flex-damage/) |
 [Reports](https://c1587s.github.io/flex-damage-reports/)
@@ -94,7 +94,8 @@ Pre-estimated parameters for all completed sectors are available
 on Zenodo:
 
 - **Latest version** (always current): https://doi.org/10.5281/zenodo.19199918
-- **Version 1.1.0** (current release): https://zenodo.org/records/19712742
+- **Version 1.3.0** (current release): https://zenodo.org/records/19916065
+- **Version 1.1.0**: https://zenodo.org/records/19712742
 - **Version 1.0.0-alpha**: https://zenodo.org/records/19199919
 
 Each parameter file contains 12 fields per region per gamma quantile:
