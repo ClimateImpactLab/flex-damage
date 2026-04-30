@@ -1,0 +1,65 @@
+# =============================================================================
+# FlexDamage v3 - energy electricity_country Country-Level Configuration
+# =============================================================================
+# Country-resolution analog of electricity.yaml. Same estimation logic,
+# different input parquet (country-aggregated) and output naming.
+
+run:
+  name: energy_electricity_country_ir
+  description: "energy electricity response estimation - Country resolution"
+
+sector:
+  name: energy
+  subsector: electricity_country
+  units: "kWh_per_capita"
+  units_description: "kWh per capita for electricity, rebased to 2005 baseline; pre-aggregated to country in projection system"
+  adaptation: fulladapt
+  resolution: country
+
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/energy/country_keepmc_full/energy_aggregated_country_keepmc_full.parquet
+  format: parquet
+  collapse_mc: false   # default: keep all MC draws
+
+  columns:
+    y: energy_electricity
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    backend: fixest        # R fixest (50-200x faster on big keep-MC datasets)
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 5
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: min
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/energy/electricity_country
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 60

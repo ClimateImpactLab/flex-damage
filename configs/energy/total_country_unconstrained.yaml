@@ -1,0 +1,50 @@
+run:
+  name: energy_total_country_unconstrained_ir
+  description: energy total response estimation - Country resolution (UNCONSTRAINED
+    diagnostic, no beta>=0 enforced)
+sector:
+  name: energy
+  subsector: total_country_unconstrained
+  units: kWh_per_capita
+  units_description: kWh per capita for total, rebased to 2005 baseline; DIAGNOSTIC
+    variant with NO beta constraint applied (allows beta < 0 = concave temperature
+    response). Compare with the constrained total_country version to see where the
+    convexity constraint is binding and how it shifts the regional fit.
+  adaptation: fulladapt
+  resolution: country
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/energy/country_keepmc_full/energy_aggregated_country_keepmc_full.parquet
+  format: parquet
+  collapse_mc: false
+  columns:
+    y: energy_total
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+    - rcp
+    - ssp
+  income_is_log: false
+estimation:
+  formula: alpha * T + beta * T**2
+  gamma:
+    method: fixed_effects
+    backend: fixest
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+  regional:
+    min_observations: 5
+    ridge_lambda: 1.0e-08
+  constraints: []
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/energy/total_country_unconstrained
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+execution:
+  workers: 0
+  memory_limit_gb: 60
