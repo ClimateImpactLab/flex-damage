@@ -2,7 +2,8 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19916065.svg)](https://doi.org/10.5281/zenodo.19916065)
 
-[Documentation](https://climateimpactlab.github.io/flex-damage/) |
+[Documentation](https://climateimpactlab.github.io/flex-damage/paper.html) |
+[Developer docs](https://climateimpactlab.github.io/flex-damage/) |
 [Reports](https://c1587s.github.io/flex-damage-reports/)
 
 > This is an internal tool for the Climate Impact Lab, designed to
@@ -105,7 +106,11 @@ error terms, and fit diagnostics. The format is described in the
 
 ## Documentation
 
-Full methodology, pipeline reference, and API docs (work in progress):
+Single-page long-form (recommended for reading):
+
+> https://climateimpactlab.github.io/flex-damage/paper.html
+
+Developer docs (multi-page reference, methodology, pipeline, API):
 
 > https://climateimpactlab.github.io/flex-damage/
 
