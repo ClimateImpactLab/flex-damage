@@ -9,6 +9,9 @@
 
 > Internal tool for the Climate Impact Lab. Runs on the University of
 > Chicago RCC cluster (Midway) with access to CIL project data.
+>
+> This implementation is based on the original CIL FlexDamage code at
+> [ClimateImpactLab/flexdamage](https://github.com/ClimateImpactLab/flexdamage/tree/main/src).
 
 `flex-damage` fits statistical emulators of CIL climate impact projections.
 Each region gets its own quadratic in temperature; a globally fitted income
