@@ -516,12 +516,12 @@ bundles and the upstream sources they come from.</p>
 <tr>
 <td><span class="arithmatex">\(T\)</span></td>
 <td>Local temperature anomaly</td>
-<td><strong>°C above 1986–2005 climatology</strong></td>
+<td>°C above 1986 to 2005 climatology</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(Y\)</span></td>
 <td>GDP per capita</td>
-<td><strong>2005 USD PPP per capita</strong></td>
+<td>2005 USD PPP per capita</td>
 </tr>
 <tr>
 <td><span class="arithmatex">\(\alpha\)</span>, <span class="arithmatex">\(\beta\)</span></td>
@@ -547,49 +547,49 @@ bundles and the upstream sources they come from.</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>mortality</strong></td>
+<td>mortality</td>
 <td>allcause</td>
 <td><code>deaths_per_100k</code></td>
 <td>Excess all-cause all-age deaths per 100,000 person-years attributable to climate change (full adaptation including adaptation costs); rebased to 2005 baseline + costs/100k.</td>
 </tr>
 <tr>
-<td><strong>labor</strong></td>
+<td>labor</td>
 <td>combined</td>
 <td><code>mins/worker/day</code></td>
 <td>Change in productive minutes per worker per day for all workers. Negative values indicate productivity loss; positive values indicate gain.</td>
 </tr>
 <tr>
-<td><strong>labor</strong></td>
+<td>labor</td>
 <td>high_risk</td>
 <td><code>mins/worker/day</code></td>
 <td>Same as combined, for the high-heat-exposure worker subpopulation.</td>
 </tr>
 <tr>
-<td><strong>labor</strong></td>
+<td>labor</td>
 <td>low_risk</td>
 <td><code>mins/worker/day</code></td>
 <td>Same as combined, for the low-heat-exposure worker subpopulation.</td>
 </tr>
 <tr>
-<td><strong>energy</strong></td>
+<td>energy</td>
 <td>total</td>
 <td><code>kWh_per_capita</code></td>
 <td>Climate-attributable change in total electricity + non-electricity energy consumption per capita, rebased to 2005 baseline.</td>
 </tr>
 <tr>
-<td><strong>energy</strong></td>
+<td>energy</td>
 <td>electricity</td>
 <td><code>kWh_per_capita</code></td>
 <td>As above, electricity only.</td>
 </tr>
 <tr>
-<td><strong>energy</strong></td>
+<td>energy</td>
 <td>non_electricity</td>
 <td><code>kWh_per_capita</code></td>
 <td>As above, non-electricity (e.g., natural gas, oil) only.</td>
 </tr>
 <tr>
-<td><strong>agriculture</strong></td>
+<td>agriculture</td>
 <td>corn / rice / soy / sorghum / cassava / wheat_combined / wheat_spring / wheat_winter</td>
 <td><code>log_yield_change</code></td>
 <td>Log change in crop yield (kg/Ha, log scale): <span class="arithmatex">\(\log(\text{yield}_{\text{climate}}) - \log(\text{yield}_{\text{histclim}})\)</span>.</td>
@@ -598,44 +598,32 @@ bundles and the upstream sources they come from.</p>
 </table>
 <p>Sign conventions:</p>
 <ul>
-<li><strong>Mortality:</strong> positive <span class="arithmatex">\(D\)</span> = excess deaths.</li>
-<li><strong>Labor:</strong> negative <span class="arithmatex">\(D\)</span> means productivity loss (typical sign under warming for hot countries); positive <span class="arithmatex">\(D\)</span> means small gain (occasional in temperate countries).</li>
-<li><strong>Energy (total / electricity):</strong> positive <span class="arithmatex">\(D\)</span> = more energy consumed.</li>
-<li><strong>Energy (non-electricity):</strong> typically negative under warming.</li>
-<li><strong>Agriculture:</strong> negative <span class="arithmatex">\(D\)</span> = yield decline.</li>
+<li>Mortality: positive <span class="arithmatex">\(D\)</span> means excess deaths.</li>
+<li>Labor: negative <span class="arithmatex">\(D\)</span> means productivity loss (typical sign under warming for hot countries); positive <span class="arithmatex">\(D\)</span> means small gain (occasional in temperate countries).</li>
+<li>Energy (total / electricity): positive <span class="arithmatex">\(D\)</span> means more energy consumed.</li>
+<li>Energy (non-electricity): typically negative under warming.</li>
+<li>Agriculture: negative <span class="arithmatex">\(D\)</span> means yield decline.</li>
 </ul>
 <h2 id="temperature-units">Temperature units<a class="headerlink" href="#temperature-units" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Variable:</strong> local-area-weighted temperature anomaly.</li>
-<li><strong>Units:</strong> °C.</li>
-<li><strong>Baseline:</strong> <strong>1986–2005</strong>, computed per impact region from the GMFD reanalysis.</li>
-<li><strong>Source:</strong> CIL projection-system climate inputs (<code>gcm_temp_gmst_year_preind1986-2005.csv</code>).</li>
+<li>Variable: local-area-weighted temperature anomaly.</li>
+<li>Units: °C.</li>
+<li>Baseline: 1986 to 2005, computed per impact region from the GMFD reanalysis.</li>
 </ul>
 <h2 id="income-units">Income units<a class="headerlink" href="#income-units" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Variable:</strong> GDP per capita.</li>
-<li><strong>Units:</strong> <strong>2005 USD PPP per capita</strong> (real, purchasing-power-parity adjusted to 2005 base year).</li>
-<li><strong>Source:</strong> SSP scenario projections from IIASA GDP and OECD Env-Growth
-  IAMs, harmonised by the CIL projection system in
-  <code>integration-econ-bc39.zarr</code>.</li>
+<li>Variable: GDP per capita.</li>
+<li>Units: 2005 USD PPP per capita (real, purchasing-power-parity adjusted to 2005 base year).</li>
+<li>Source: SSP scenario projections from IIASA GDP and OECD Env-Growth IAMs.</li>
 </ul>
 <h2 id="resolution">Resolution<a class="headerlink" href="#resolution" title="Permanent link">&para;</a></h2>
 <p>Parameters are estimated and published at two resolutions:</p>
 <ul>
-<li><strong>Impact Region (IR)</strong>: ~24,000 sub-national regions defined by the CIL
+<li>Impact Region (IR): ~24,000 sub-national regions defined by the CIL
   region hierarchy. The default scientific resolution.</li>
-<li><strong>Country</strong>: 245 to 253 country codes (ISO3-equivalent), aggregated from
-  IRs by population-weighted mean of per-IR rates (mortality, labor) or
-  population-weighted mean of per-IR per-capita values (energy). Agriculture
-  uses the projection system's own country aggregation in the
-  <code>*-aggregated.nc4</code> (1% winsorization variant).</li>
+<li>Country: 245 to 253 country codes (ISO3-equivalent), obtained by
+  population-weighted aggregation from the underlying impact-region data.</li>
 </ul>
-<p>For energy at country level, the aggregation was performed by the
-flex-damage builder itself (validated against the projection system's own
-<code>-pop-aggregated.nc4</code> for SSP3 to ~1e-7 relative tolerance) because the
-projection system did not produce a per-capita country aggregation for the
-SSPs we needed. The same applies to labor where SSP2 / SSP4 had no
-pre-aggregated country file.</p>
 <h2 id="files-in-each-parameter-bundle">Files in each parameter bundle<a class="headerlink" href="#files-in-each-parameter-bundle" title="Permanent link">&para;</a></h2>
 <p>For every <code>(sector, subsector, resolution)</code> combination on Zenodo:</p>
 <table>
@@ -666,9 +654,13 @@ pre-aggregated country file.</p>
 </table>
 <h2 id="reproducing">Reproducing<a class="headerlink" href="#reproducing" title="Permanent link">&para;</a></h2>
 <p>Code: <a href="https://github.com/ClimateImpactLab/flex-damage">https://github.com/ClimateImpactLab/flex-damage</a>.</p>
-<p>The full pipeline (data prep, estimation, report) is open-source. See the
-project README for environment setup, data sources, and SLURM launch
-scripts.</p>
+<p>The estimation and report pipeline is developed at the Climate Impact Lab
+and runs on the University of Chicago Research Computing Center (RCC).
+End-to-end reproduction (from raw projection-system Monte Carlo outputs
+through to parameters and reports) requires access to the RCC and to the
+shared Climate Impact Lab data directories on Midway. Without that
+access, the codebase can still be inspected, and the published parameters
+and reports can be downloaded directly from Zenodo and the reports site.</p>
 
 
 
