@@ -12,20 +12,20 @@
         <meta name="author" content="Climate Impact Lab">
       
       
-        <link rel="canonical" href="https://climateimpactlab.github.io/flex-damage/reports/">
+        <link rel="canonical" href="https://climateimpactlab.github.io/flex-damage/units/">
       
       
-        <link rel="prev" href="../pipeline/">
+        <link rel="prev" href="../methodology/">
       
       
-        <link rel="next" href="../api/">
+        <link rel="next" href="../parameters/">
       
       <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.0.12">
     
     
       
-        <title>Reports - FlexDamage</title>
+        <title>Units & sources - FlexDamage</title>
       
     
     
@@ -73,7 +73,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#diagnostic-reports" class="md-skip">
+        <a href="#units-methodology" class="md-skip">
           Skip to content
         </a>
       
@@ -106,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Reports
+              Units & sources
             
           </span>
         </div>
@@ -246,11 +246,94 @@
 
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="../units/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Units & sources
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         Units & sources
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#damage-function" class="md-nav__link">
+    Damage function
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#outcome-units-per-sector" class="md-nav__link">
+    Outcome units per sector
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temperature-units" class="md-nav__link">
+    Temperature units
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#income-units" class="md-nav__link">
+    Income units
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolution" class="md-nav__link">
+    Resolution
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files-in-each-parameter-bundle" class="md-nav__link">
+    Files in each parameter bundle
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing" class="md-nav__link">
+    Reproducing
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -291,141 +374,11 @@
 
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Reports
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../reports/" class="md-nav__link">
         Reports
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#parameter-distributions" class="md-nav__link">
-    Parameter distributions
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#polynomial-summary" class="md-nav__link">
-    Polynomial summary
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#damage-curves" class="md-nav__link">
-    Damage curves
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#flex-vs-raw-comparison" class="md-nav__link">
-    Flex vs raw comparison
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#generating-reports" class="md-nav__link">
-    Generating reports
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#available-reports" class="md-nav__link">
-    Available reports
-  </a>
-  
-    <nav class="md-nav" aria-label="Available reports">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sectors-covered" class="md-nav__link">
-    Sectors covered
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#direct-links" class="md-nav__link">
-    Direct links
-  </a>
-  
-    <nav class="md-nav" aria-label="Direct links">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#agriculture" class="md-nav__link">
-    Agriculture
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mortality" class="md-nav__link">
-    Mortality
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#labor" class="md-nav__link">
-    Labor
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#energy" class="md-nav__link">
-    Energy
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -472,98 +425,51 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#parameter-distributions" class="md-nav__link">
-    Parameter distributions
+  <a href="#damage-function" class="md-nav__link">
+    Damage function
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#polynomial-summary" class="md-nav__link">
-    Polynomial summary
+  <a href="#outcome-units-per-sector" class="md-nav__link">
+    Outcome units per sector
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#damage-curves" class="md-nav__link">
-    Damage curves
+  <a href="#temperature-units" class="md-nav__link">
+    Temperature units
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#flex-vs-raw-comparison" class="md-nav__link">
-    Flex vs raw comparison
+  <a href="#income-units" class="md-nav__link">
+    Income units
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#generating-reports" class="md-nav__link">
-    Generating reports
+  <a href="#resolution" class="md-nav__link">
+    Resolution
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#available-reports" class="md-nav__link">
-    Available reports
-  </a>
-  
-    <nav class="md-nav" aria-label="Available reports">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sectors-covered" class="md-nav__link">
-    Sectors covered
+  <a href="#files-in-each-parameter-bundle" class="md-nav__link">
+    Files in each parameter bundle
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#direct-links" class="md-nav__link">
-    Direct links
+      
+        <li class="md-nav__item">
+  <a href="#reproducing" class="md-nav__link">
+    Reproducing
   </a>
-  
-    <nav class="md-nav" aria-label="Direct links">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#agriculture" class="md-nav__link">
-    Agriculture
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mortality" class="md-nav__link">
-    Mortality
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#labor" class="md-nav__link">
-    Labor
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#energy" class="md-nav__link">
-    Energy
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -586,266 +492,183 @@
 
 
 
-<h1 id="diagnostic-reports">Diagnostic Reports<a class="headerlink" href="#diagnostic-reports" title="Permanent link">&para;</a></h1>
-<p>A diagnostic report is generated for each sector/subsector. It
-evaluates how well the fitted polynomials represent the underlying
-simulation data, following the evaluation framework described in the
-methodology.</p>
-<h2 id="parameter-distributions">Parameter distributions<a class="headerlink" href="#parameter-distributions" title="Permanent link">&para;</a></h2>
-<p>Eight-panel histogram showing the distribution of each estimated
-parameter across all regions. For gamma, the histogram is generated
-by sampling from the estimated <span class="arithmatex">\(N(\hat{\gamma}, SE)\)</span> distribution
-(matching the R reference approach). For all other parameters, the
-histogram shows the values across regions at the median gamma quantile.</p>
-<p>What to look for: the shape of the distributions indicates how much
-heterogeneity exists across regions. A wide alpha distribution means
-regions differ substantially in their linear temperature response.
-Beta concentrated near zero suggests the constraint binds frequently.</p>
-<h2 id="polynomial-summary">Polynomial summary<a class="headerlink" href="#polynomial-summary" title="Permanent link">&para;</a></h2>
-<p>Evaluates the fitted quadratic <span class="arithmatex">\(D(T) = \alpha T + \beta T^2\)</span> across
-all regions:</p>
-<ul>
-<li>
-<p><strong>Zero crossings</strong>: At what temperature does the polynomial change
-  sign? Computed as <span class="arithmatex">\(T^* = -\alpha / \beta\)</span>. Regions where <span class="arithmatex">\(\beta = 0\)</span>
-  (constraint binds) have no crossing. Regions with <span class="arithmatex">\(T^* &gt; 20\)</span> or
-  <span class="arithmatex">\(T^* &lt; 0\)</span> are outside the relevant temperature range.</p>
-</li>
-<li>
-<p><strong>Slope distribution</strong>: The maximum slope of the polynomial between
-  0 and 10 C, computed as <span class="arithmatex">\(\max(|\alpha|, |\alpha + 20\beta|)\)</span>.
-  Extreme slopes suggest regions where small temperature changes
-  produce large impact changes.</p>
-</li>
-<li>
-<p><strong>Convexity</strong>: Fraction of regions where the unconstrained estimate
-  would have had <span class="arithmatex">\(\beta &gt; 0\)</span> (and was therefore clipped). For
-  agriculture with the <span class="arithmatex">\(\beta \leq 0\)</span> constraint, this indicates how
-  often the constraint binds.</p>
-</li>
-</ul>
-<h2 id="damage-curves">Damage curves<a class="headerlink" href="#damage-curves" title="Permanent link">&para;</a></h2>
-<p>Spaghetti plot of sampled regional polynomials, with the cross-region
-mean and interquartile range overlaid. Plotted from 0 to 8 C
-temperature anomaly.</p>
-<p>The spread of curves indicates the range of regional responses. The
-mean curve shows the "typical" damage function shape. Wide IQR bands
-suggest substantial regional heterogeneity.</p>
-<h2 id="flex-vs-raw-comparison">Flex vs raw comparison<a class="headerlink" href="#flex-vs-raw-comparison" title="Permanent link">&para;</a></h2>
-<p>The core validation: does the fitted polynomial, evaluated with
-scenario-specific temperature and income, reproduce the raw
-simulation data?</p>
-<p>For each scenario (RCP <span class="arithmatex">\(\times\)</span> SSP <span class="arithmatex">\(\times\)</span> period):</p>
-<div class="arithmatex">\[\hat{D}_i = (\alpha_i \bar{T} + \beta_i \bar{T}^2) \cdot \bar{Y}_i^{\gamma}\]</div>
-<p>is compared to the raw simulation mean <span class="arithmatex">\(\bar{N}_i\)</span> for that region
-and scenario.</p>
-<p>Diagnostics reported per scenario:</p>
-<ul>
-<li>
-<p><strong>Correlation</strong>: Pearson correlation between flex and raw across
-  regions. Values above 0.95 indicate the polynomial captures the
-  spatial pattern well.</p>
-</li>
-<li>
-<p><strong>RMSE</strong>: Root mean squared error. Scale depends on the outcome
-  variable units.</p>
-</li>
-<li>
-<p><strong>Sign agreement</strong>: Fraction of regions where flex and raw have
-  the same sign. Sign disagreement means the polynomial predicts
-  benefit where the simulation shows damage (or vice versa).</p>
-</li>
-<li>
-<p><strong>Maps</strong>: Four maps per scenario showing the spatial distribution
-  of flex predictions, raw means, their difference, and sign
-  agreement. Red indicates damage or overprediction; blue indicates
-  benefit or underprediction.</p>
-</li>
-<li>
-<p><strong>Worst predictions</strong>: The 10 regions with the largest absolute
-  residual between flex and raw.</p>
-</li>
-</ul>
-<p>Results are organized by period (2080-2099, 2060-2079) with tabs
-for each RCP/SSP combination.</p>
-<h2 id="generating-reports">Generating reports<a class="headerlink" href="#generating-reports" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>scripts/generate_report.py<span class="w"> </span>--sector<span class="w"> </span>agriculture<span class="w"> </span>--subsector<span class="w"> </span>corn<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--results-dir<span class="w"> </span>/path/to/parameters<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--format<span class="w"> </span>html
-</span></code></pre></div>
-<p>Reports are self-contained HTML files. Each report covers one
-sector/subsector combination.</p>
-<h2 id="available-reports">Available reports<a class="headerlink" href="#available-reports" title="Permanent link">&para;</a></h2>
-<p>Reports are hosted at <a href="https://c1587s.github.io/flex-damage-reports/">c1587s.github.io/flex-damage-reports</a> — that page has a sortable index by sector with both <strong>Impact Region</strong> and <strong>Country</strong> resolution links side-by-side. For energy you'll also find <strong>Country (unconstrained)</strong> diagnostic reports that drop the <code>β ≥ 0</code> convexity constraint.</p>
-<h3 id="sectors-covered">Sectors covered<a class="headerlink" href="#sectors-covered" title="Permanent link">&para;</a></h3>
+<h1 id="units-methodology">Units &amp; Methodology<a class="headerlink" href="#units-methodology" title="Permanent link">&para;</a></h1>
+<p>This page documents the units of every variable in the FlexDamage parameter
+bundles and the upstream sources they come from.</p>
+<h2 id="damage-function">Damage function<a class="headerlink" href="#damage-function" title="Permanent link">&para;</a></h2>
+<p>The flexible damage function is</p>
+<div class="arithmatex">\[D(T, Y) = (\alpha\,T + \beta\,T^2) \cdot Y^{\gamma}\]</div>
+<p>where:</p>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Meaning</th>
+<th>Units</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="arithmatex">\(D\)</span></td>
+<td>Outcome (damage). Sector-specific (see below)</td>
+<td>sector-specific</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(T\)</span></td>
+<td>Local temperature anomaly</td>
+<td><strong>°C above 1986–2005 climatology</strong></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(Y\)</span></td>
+<td>GDP per capita</td>
+<td><strong>2005 USD PPP per capita</strong></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\alpha\)</span>, <span class="arithmatex">\(\beta\)</span></td>
+<td>Region-specific linear and quadratic coefficients</td>
+<td><span class="arithmatex">\(D\)</span>-units / °C and <span class="arithmatex">\(D\)</span>-units / °C²</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\gamma\)</span></td>
+<td>Globally-fitted income elasticity</td>
+<td>dimensionless</td>
+</tr>
+</tbody>
+</table>
+<h2 id="outcome-units-per-sector">Outcome units per sector<a class="headerlink" href="#outcome-units-per-sector" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Sector</th>
-<th>Subsectors</th>
-<th>Resolutions</th>
+<th>Subsector</th>
+<th>Outcome units</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Agriculture</td>
-<td>corn, rice, soy, sorghum, cassava, wheat_combined, wheat_spring, wheat_winter</td>
-<td>IR, country</td>
-</tr>
-<tr>
-<td>Mortality</td>
+<td><strong>mortality</strong></td>
 <td>allcause</td>
-<td>IR, country</td>
+<td><code>deaths_per_100k</code></td>
+<td>Excess all-cause all-age deaths per 100,000 person-years attributable to climate change (full adaptation including adaptation costs); rebased to 2005 baseline + costs/100k.</td>
 </tr>
 <tr>
-<td>Labor</td>
-<td>combined, high_risk, low_risk</td>
-<td>IR, country</td>
+<td><strong>labor</strong></td>
+<td>combined</td>
+<td><code>mins/worker/day</code></td>
+<td>Change in productive minutes per worker per day for all workers. Negative = productivity loss; positive = gain. The IR-level nc4 mislabels this as "portion" but values are numerically identical to the projection system's pop-aggregated <code>mins/worker/day</code> convention.</td>
 </tr>
 <tr>
-<td>Energy</td>
-<td>total, electricity, non_electricity</td>
-<td>IR, country, <strong>country (unconstrained — diagnostic)</strong></td>
+<td><strong>labor</strong></td>
+<td>high_risk</td>
+<td><code>mins/worker/day</code></td>
+<td>Same as combined for the high-heat-exposure worker subpopulation.</td>
+</tr>
+<tr>
+<td><strong>labor</strong></td>
+<td>low_risk</td>
+<td><code>mins/worker/day</code></td>
+<td>Same as combined for the low-heat-exposure worker subpopulation.</td>
+</tr>
+<tr>
+<td><strong>energy</strong></td>
+<td>total</td>
+<td><code>kWh_per_capita</code></td>
+<td>Climate-attributable change in total electricity + non-electricity energy consumption per capita, rebased to 2005 baseline.</td>
+</tr>
+<tr>
+<td><strong>energy</strong></td>
+<td>electricity</td>
+<td><code>kWh_per_capita</code></td>
+<td>As above, electricity only.</td>
+</tr>
+<tr>
+<td><strong>energy</strong></td>
+<td>non_electricity</td>
+<td><code>kWh_per_capita</code></td>
+<td>As above, non-electricity (e.g., natural gas, oil) only.</td>
+</tr>
+<tr>
+<td><strong>agriculture</strong></td>
+<td>corn / rice / soy / sorghum / cassava / wheat_combined / wheat_spring / wheat_winter</td>
+<td><code>log_yield_change</code></td>
+<td>Log change in crop yield (kg/Ha, log scale): <span class="arithmatex">\(\log(\text{yield}_{\text{climate}}) - \log(\text{yield}_{\text{histclim}})\)</span>.</td>
 </tr>
 </tbody>
 </table>
-<h3 id="direct-links">Direct links<a class="headerlink" href="#direct-links" title="Permanent link">&para;</a></h3>
-<h4 id="agriculture">Agriculture<a class="headerlink" href="#agriculture" title="Permanent link">&para;</a></h4>
+<p>Sign conventions:</p>
+<ul>
+<li><strong>Mortality:</strong> positive <span class="arithmatex">\(D\)</span> = excess deaths.</li>
+<li><strong>Labor:</strong> negative <span class="arithmatex">\(D\)</span> = productivity loss (typical sign under warming, hot countries); positive <span class="arithmatex">\(D\)</span> = small gain (occasional in temperate countries).</li>
+<li><strong>Energy (total / electricity):</strong> positive <span class="arithmatex">\(D\)</span> = more energy consumed.</li>
+<li><strong>Energy (non-electricity):</strong> typically negative under warming.</li>
+<li><strong>Agriculture:</strong> negative <span class="arithmatex">\(D\)</span> = yield decline.</li>
+</ul>
+<h2 id="temperature-units">Temperature units<a class="headerlink" href="#temperature-units" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Variable:</strong> local-area-weighted temperature anomaly.</li>
+<li><strong>Units:</strong> °C.</li>
+<li><strong>Baseline:</strong> <strong>1986–2005</strong>, computed per impact region from the GMFD reanalysis.</li>
+<li><strong>Source:</strong> CIL projection-system climate inputs (<code>gcm_temp_gmst_year_preind1986-2005.csv</code>).</li>
+</ul>
+<h2 id="income-units">Income units<a class="headerlink" href="#income-units" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Variable:</strong> GDP per capita.</li>
+<li><strong>Units:</strong> <strong>2005 USD PPP per capita</strong> (real, purchasing-power-parity adjusted to 2005 base year).</li>
+<li><strong>Source:</strong> SSP scenario projections from IIASA GDP and OECD Env-Growth
+  IAMs, harmonised by the CIL projection system in
+  <code>integration-econ-bc39.zarr</code>.</li>
+</ul>
+<h2 id="resolution">Resolution<a class="headerlink" href="#resolution" title="Permanent link">&para;</a></h2>
+<p>Parameters are estimated and published at two resolutions:</p>
+<ul>
+<li><strong>Impact Region (IR)</strong> — ~24,000 sub-national regions defined by the CIL
+  region hierarchy. The default scientific resolution.</li>
+<li><strong>Country</strong> — 245–253 country codes (ISO3-equivalent), aggregated from
+  IRs by population-weighted mean of per-IR rates (mortality, labor) or
+  population-weighted mean of per-IR per-capita values (energy). Agriculture
+  uses the projection system's own country aggregation in the
+  <code>*-aggregated.nc4</code> (1% winsorization variant).</li>
+</ul>
+<p>For energy at country level, the aggregation was performed by the
+flex-damage builder itself (validated against the projection system's own
+<code>-pop-aggregated.nc4</code> for SSP3 to ~1e-7 relative tolerance) because the
+projection system did not produce a per-capita country aggregation for the
+SSPs we needed. The same applies to labor where SSP2 / SSP4 had no
+pre-aggregated country file.</p>
+<h2 id="files-in-each-parameter-bundle">Files in each parameter bundle<a class="headerlink" href="#files-in-each-parameter-bundle" title="Permanent link">&para;</a></h2>
+<p>For every <code>(sector, subsector, resolution)</code> combination on Zenodo:</p>
 <table>
 <thead>
 <tr>
-<th>Crop</th>
-<th>Impact Region</th>
-<th>Country</th>
+<th>File</th>
+<th>Contents</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Cassava</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_country.html" target="_blank">Country</a></td>
+<td><code>&lt;sector&gt;__&lt;sub&gt;__regional_parameters.csv</code></td>
+<td>Per-region parameters (one row per region × gamma quantile)</td>
 </tr>
 <tr>
-<td>Corn</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_country.html" target="_blank">Country</a></td>
+<td><code>&lt;sector&gt;__&lt;sub&gt;__global_results.json</code></td>
+<td>Globally-fitted gamma + 19 quantile values + R²</td>
 </tr>
 <tr>
-<td>Rice</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_country.html" target="_blank">Country</a></td>
+<td><code>&lt;sector&gt;__&lt;sub&gt;__metadata.json</code></td>
+<td>Full run config + summary statistics</td>
 </tr>
 <tr>
-<td>Sorghum</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>Soy</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>Wheat (combined)</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>Wheat (spring)</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>Wheat (winter)</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_country.html" target="_blank">Country</a></td>
+<td><code>&lt;sector&gt;__&lt;sub&gt;__README.md</code></td>
+<td>Per-sector unit summary and provenance — <strong>read this first</strong></td>
 </tr>
 </tbody>
 </table>
-<h4 id="mortality">Mortality<a class="headerlink" href="#mortality" title="Permanent link">&para;</a></h4>
-<table>
-<thead>
-<tr>
-<th>Subsector</th>
-<th>Impact Region</th>
-<th>Country</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All-cause all-age</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_country.html" target="_blank">Country</a></td>
-</tr>
-</tbody>
-</table>
-<h4 id="labor">Labor<a class="headerlink" href="#labor" title="Permanent link">&para;</a></h4>
-<table>
-<thead>
-<tr>
-<th>Subsector</th>
-<th>Impact Region</th>
-<th>Country</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Combined</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>High-risk workers</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_country.html" target="_blank">Country</a></td>
-</tr>
-<tr>
-<td>Low-risk workers</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_country.html" target="_blank">Country</a></td>
-</tr>
-</tbody>
-</table>
-<h4 id="energy">Energy<a class="headerlink" href="#energy" title="Permanent link">&para;</a></h4>
-<table>
-<thead>
-<tr>
-<th>Subsector</th>
-<th>Impact Region</th>
-<th>Country</th>
-<th>Country — unconstrained (diagnostic)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Total</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country.html" target="_blank">Country</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country_unconstrained.html" target="_blank">Unconstrained</a></td>
-</tr>
-<tr>
-<td>Electricity</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country.html" target="_blank">Country</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country_unconstrained.html" target="_blank">Unconstrained</a></td>
-</tr>
-<tr>
-<td>Non-electricity</td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html" target="_blank">IR</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country.html" target="_blank">Country</a></td>
-<td><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country_unconstrained.html" target="_blank">Unconstrained</a></td>
-</tr>
-</tbody>
-</table>
-<p>The unconstrained energy reports drop the <code>β ≥ 0</code> convexity constraint.
-Compare them with the constrained <code>country</code> versions to see where the
-constraint is binding (β = 0 in the constrained run, β ≠ 0 in the
-unconstrained run). For non_electricity in particular the unconstrained
-fit gives more regions concave β values, but tropical countries' positive
-raw signal is still not recovered — that's a structural limit of the
-flex form against pop-weighted country data, not a constraint problem.</p>
-<p>These open as self-contained HTML files with interactive plots, country
-maps, and scenario comparisons.</p>
+<h2 id="reproducing">Reproducing<a class="headerlink" href="#reproducing" title="Permanent link">&para;</a></h2>
+<p>Code: <a href="https://github.com/ClimateImpactLab/flex-damage">https://github.com/ClimateImpactLab/flex-damage</a>.</p>
+<p>The full pipeline (data prep, estimation, report) is open-source. See the
+project README for environment setup, data sources, and SLURM launch
+scripts.</p>
 
 
 
