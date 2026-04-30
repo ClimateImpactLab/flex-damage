@@ -28,9 +28,74 @@ import sys
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from IPython.display import HTML as _HTML, display as _display
 
 # Add flexdamage to path
 sys.path.insert(0, str(Path.cwd().parent / "src"))
+
+
+# Use plotly's officially-supported pattern: bundle plotly.min.js inline once
+# (with the very first figure) and reference it from every subsequent figure.
+# This avoids the unreliable "fetch from CDN" path that some browsers and
+# Quarto's --embed-resources don't always handle. The bundle is ~3.5 MB,
+# included once, so it doesn't blow up the file size.
+_PLOTLY_INCLUDED = [False]  # mutable so we can flip from inside _show_plotly
+
+
+def _show_plotly(fig):
+    """Emit a plotly figure. The first call inlines plotly.min.js once;
+    subsequent calls reuse the already-loaded bundle. Disables plotly's
+    MathJax v2 stub (which otherwise clobbers Quarto's MathJax v3 and breaks
+    every $$..$$ formula on the page).
+    """
+    include_plotlyjs = (not _PLOTLY_INCLUDED[0])  # True on first call, False after
+    _PLOTLY_INCLUDED[0] = True
+    _display(_HTML(fig.to_html(
+        include_plotlyjs=include_plotlyjs,
+        include_mathjax=False,
+        full_html=False,
+        config={"displayModeBar": True, "responsive": True},
+    )))
+
+
+# ISO3 -> human-readable country name. Tries `pycountry` first so any ISO3
+# code resolves automatically; falls through to the curated short list
+# below when pycountry isn't available, and finally returns the raw ISO3
+# code. Used for spaghetti-curves legend AND worst-fit plot titles, so
+# changing the report's country set requires no further edits here.
+try:
+    import pycountry as _pycountry  # type: ignore
+    def _country_name(code):
+        if not code or not isinstance(code, str):
+            return code
+        try:
+            entry = _pycountry.countries.get(alpha_3=code.upper())
+            if entry is not None:
+                # pycountry uses a verbose "Russian Federation"; prefer
+                # `common_name` when present (e.g. "Russia") for nicer labels
+                return getattr(entry, "common_name", None) or entry.name
+        except (LookupError, AttributeError, KeyError):
+            pass
+        return _COUNTRY_NAMES.get(code, code)
+except ImportError:
+    def _country_name(code):
+        return _COUNTRY_NAMES.get(code, code)
+
+
+_COUNTRY_NAMES = {
+    "AGO": "Angola",       "ARG": "Argentina",   "AUS": "Australia",
+    "BFA": "Burkina Faso", "BGD": "Bangladesh",  "BOL": "Bolivia",
+    "BRA": "Brazil",       "CAN": "Canada",      "CHN": "China",
+    "CMR": "Cameroon",     "COD": "DR Congo",    "COL": "Colombia",
+    "DEU": "Germany",      "ETH": "Ethiopia",    "FRA": "France",
+    "GHA": "Ghana",        "IDN": "Indonesia",   "IND": "India",
+    "IRQ": "Iraq",         "MEX": "Mexico",      "MMR": "Myanmar",
+    "MOZ": "Mozambique",   "NER": "Niger",       "NGA": "Nigeria",
+    "NOR": "Norway",       "PAK": "Pakistan",    "PHL": "Philippines",
+    "PRY": "Paraguay",     "RUS": "Russia",      "SDN": "Sudan",
+    "THA": "Thailand",     "UKR": "Ukraine",     "USA": "United States",
+    "VNM": "Vietnam",      "ZAF": "South Africa",
+}
 
 # Read config from external JSON file (written by render script)
 # This avoids Quarto param caching issues entirely
@@ -62,19 +127,21 @@ else:
 # Mortality:   beta >= 0 (convexity) - U-shaped response, accelerating damages
 #
 # These settings control text descriptions throughout the report.
+# Sector-defaults for constraint direction. These are overridden below once
+# metadata is loaded so that the `_unconstrained` variants automatically
+# relabel to "no constraint applied".
 if SECTOR == "mortality":
-    CONSTRAINT_DIRECTION = "min"  # beta >= 0 (convexity)
+    CONSTRAINT_DIRECTION = "min"
     CONSTRAINT_LABEL = "convexity ($\\beta \\geq 0$)"
     CONSTRAINT_DESCRIPTION = "damages accelerate with warming (U-shaped response)"
     WRONG_DIRECTION_LABEL = "concave ($\\beta < 0$)"
-    EXPECTED_WRONG_PCT = "~0%"  # With convexity constraint, expect few concave
+    EXPECTED_WRONG_PCT = "~0%"
 else:
-    # Agriculture and other sectors default to concavity constraint
-    CONSTRAINT_DIRECTION = "max"  # beta <= 0 (concavity)
+    CONSTRAINT_DIRECTION = "max"
     CONSTRAINT_LABEL = "concavity ($\\beta \\leq 0$)"
     CONSTRAINT_DESCRIPTION = "optimal temperature exists, damages accelerate beyond it"
     WRONG_DIRECTION_LABEL = "convex ($\\beta > 0$)"
-    EXPECTED_WRONG_PCT = "~0%"  # With concavity constraint, expect few convex
+    EXPECTED_WRONG_PCT = "~0%"
 
 print(f"=== Report Config ===")
 print(f"Sector: {SECTOR}")
@@ -101,11 +168,58 @@ if metadata_json_path.exists():
     with open(metadata_json_path) as f:
         metadata = json.load(f)
 
-# Filter to median gamma for summary stats
+# Resolution detection: country reports use a different shapefile + merge column
+_RESOLUTION = (
+    metadata.get("sector", {}).get("resolution", "ir")
+    if isinstance(metadata, dict) else "ir"
+)
+if _RESOLUTION == "country":
+    # Look for the country shapefile in the canonical and fallback locations
+    _CANDIDATE_PATHS = [
+        Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/country/country_shapefile.shp"),
+        Path("/project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/_spatial/country/country_shapefile.shp"),
+    ]
+    SHAPEFILE_PATH = next((p for p in _CANDIDATE_PATHS if p.exists()), _CANDIDATE_PATHS[0])
+    SHAPE_MERGE_COL = "country"
+else:
+    SHAPEFILE_PATH = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+    SHAPE_MERGE_COL = "hierid"
+print(f"=== Report Resolution: {_RESOLUTION} ===")
+print(f"Shapefile path:  {SHAPEFILE_PATH}")
+print(f"Shape merge col: {SHAPE_MERGE_COL}")
+
+# If the loaded metadata says NO constraints were applied (e.g., the
+# `_unconstrained` diagnostic variants), override the sector-default labels
+# above so the report's convexity / sign-violations section explicitly says
+# "no constraint applied" rather than implying the regression should match a
+# direction the user never enforced.
+_meta_constraints = metadata.get("estimation", {}).get("constraints") or []
+_beta_constraint = next((c for c in _meta_constraints if c.get("parameter") == "beta"), None)
+if _beta_constraint is None:
+    CONSTRAINT_DIRECTION = None
+    CONSTRAINT_LABEL = "**no constraint applied** (β unconstrained)"
+    CONSTRAINT_DESCRIPTION = (
+        "this is an unconstrained diagnostic run. β can take either sign, "
+        "letting the data choose convex or concave shape per region."
+    )
+    WRONG_DIRECTION_LABEL = "(unconstrained, both signs allowed)"
+    EXPECTED_WRONG_PCT = "n/a (unconstrained)"
+
+# Filter to median gamma for summary stats. For each region, keep exactly the
+# row whose gamma is closest to the global median. The previous absolute-
+# tolerance filter (< 0.0001) was wider than the entire gamma spread for
+# small-magnitude sectors (e.g. mortality, where 19 quantiles span ~3e-5),
+# which kept all 19 rows per region and caused tables, spaghetti curves,
+# and F2 merges to duplicate every region.
 def filter_median_gamma(df):
-    if "gamma" in df.columns and df["gamma"].nunique() > 1:
+    if "gamma" in df.columns and df["gamma"].nunique() > 1 and "region" in df.columns:
         median_gamma = df["gamma"].median()
-        return df[abs(df["gamma"] - median_gamma) < 0.0001].copy()
+        d = df.copy()
+        d["__gamma_dist"] = (d["gamma"] - median_gamma).abs()
+        return (d.sort_values("__gamma_dist")
+                  .drop_duplicates(subset=["region"], keep="first")
+                  .drop(columns=["__gamma_dist"])
+                  .reset_index(drop=True))
     return df.copy()
 
 df_median = filter_median_gamma(regional_df)
@@ -120,7 +234,7 @@ from IPython.display import display, Markdown
 display(Markdown(f"## {SECTOR.title()}: {SUBSECTOR.replace('_', ' ').title()}"))
 ```
 
-Flexible damage function parameters for **`{python} SECTOR.title()`** (`{python} SUBSECTOR`) at the Impact Region level.
+Flexible damage function parameters at the `{python} ("Country" if _RESOLUTION == "country" else "Impact Region")` level.
 
 ```{python}
 #| output: asis
@@ -137,16 +251,22 @@ _sector_descriptions = {
     ("mortality", "allcause"): "Change in all-cause all-age mortality rate (deaths per 100,000) under full adaptation with adaptation costs",
 }
 
-_desc = _sector_descriptions.get((SECTOR, SUBSECTOR), "")
+_sub_base = SUBSECTOR.replace("_country_collapsed", "").replace("_country", "")
+_desc = (_sector_descriptions.get((SECTOR, SUBSECTOR))
+         or _sector_descriptions.get((SECTOR, _sub_base))
+         or "")
 
-# Also read units from metadata if available
-_units = metadata.get("config", {}).get("sector", {}).get("units", "")
-_adaptation = metadata.get("config", {}).get("sector", {}).get("adaptation", "full adaptation")
+# Also read units from metadata if available; try both nested layouts
+_sec_meta = (metadata.get("sector", {})
+             or metadata.get("config", {}).get("sector", {}))
+_units = _sec_meta.get("units", "")
+_units_desc = _sec_meta.get("units_description", "")
+_adaptation = _sec_meta.get("adaptation", "full adaptation")
 
 if _desc:
     print(f"**{_desc}**")
-elif _units:
-    print(f"**Outcome: {_units}, {_adaptation}**")
+if _units:
+    print(f"\n**Outcome units:** `{_units}`" + (f". {_units_desc}" if _units_desc else ""))
 ```
 
 $$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
@@ -283,7 +403,18 @@ for idx, (col, label) in enumerate(params_info):
 axes[0].set_ylabel("Region count", fontsize=10)
 axes[4].set_ylabel("Region count", fontsize=10)
 
-plt.tight_layout()
+# Single legend at figure level explaining the dashed/dotted lines
+from matplotlib.lines import Line2D
+fig.legend(
+    handles=[
+        Line2D([0], [0], color=MEDIAN_COLOR, linestyle='--', linewidth=1.2, label='Median (across regions)'),
+        Line2D([0], [0], color=MEAN_COLOR,   linestyle=':',  linewidth=1.2, label='Mean (across regions)'),
+    ],
+    loc='lower center', ncol=2, frameon=False, fontsize=9,
+    bbox_to_anchor=(0.5, -0.05),
+)
+
+plt.tight_layout(rect=(0, 0.03, 1, 1))
 plt.show()
 plt.close('all')
 ```
@@ -352,13 +483,48 @@ import plotly.graph_objects as go
 median_gamma = regional_df["gamma"].median() if "gamma" in regional_df.columns else 0
 df_plot = regional_df[abs(regional_df["gamma"] - median_gamma) < 0.0001] if "gamma" in regional_df.columns else regional_df
 
-# Sample for performance (reduced to 100 for smaller file size)
-sample = df_plot.sample(min(100, len(df_plot)), random_state=42) if len(df_plot) > 100 else df_plot
+# Highlight a sector-specific set of representative countries on country-level
+# reports. For agriculture, use the top global producers (FAOSTAT) of the
+# specific crop. For mortality / labor / energy use a diverse global mix
+# spanning hot / temperate / cold + high / mid / low income.
+_AG_TOP_PRODUCERS = {
+    "corn":           ["USA", "CHN", "BRA", "ARG", "IND", "MEX", "IDN", "FRA", "UKR", "ZAF"],
+    "rice":           ["CHN", "IND", "IDN", "BGD", "VNM", "THA", "MMR", "PHL", "PAK", "BRA"],
+    "soy":            ["USA", "BRA", "ARG", "CHN", "IND", "PRY", "CAN", "BOL", "RUS", "UKR"],
+    "sorghum":        ["USA", "NGA", "ETH", "IND", "MEX", "SDN", "ARG", "BFA", "NER", "CHN"],
+    "cassava":        ["NGA", "COD", "THA", "GHA", "IDN", "BRA", "AGO", "VNM", "CMR", "MOZ"],
+    "wheat_combined": ["CHN", "IND", "RUS", "USA", "FRA", "CAN", "AUS", "UKR", "DEU", "PAK"],
+    "wheat_spring":   ["CHN", "IND", "RUS", "USA", "FRA", "CAN", "AUS", "UKR", "DEU", "PAK"],
+    "wheat_winter":   ["CHN", "IND", "RUS", "USA", "FRA", "CAN", "AUS", "UKR", "DEU", "PAK"],
+}
+_DEFAULT_HIGHLIGHTS = ["IRQ", "NOR", "USA", "CHN", "IND", "FRA", "NGA", "COL"]
+
+_sub_for_highlight = SUBSECTOR.replace("_country_collapsed", "").replace("_country", "")
+if SECTOR == "agriculture" and _sub_for_highlight in _AG_TOP_PRODUCERS:
+    HIGHLIGHT_COUNTRIES = _AG_TOP_PRODUCERS[_sub_for_highlight]
+else:
+    HIGHLIGHT_COUNTRIES = _DEFAULT_HIGHLIGHTS
+
+HIGHLIGHT_PALETTE = [
+    "#d62728", "#2ca02c", "#9467bd", "#ff7f0e",
+    "#8c564b", "#e377c2", "#17becf", "#bcbd22",
+    "#1f77b4", "#aec7e8",
+]
+_is_country = (_RESOLUTION == "country")
+highlight_mask = (
+    df_plot["region"].isin(HIGHLIGHT_COUNTRIES) if _is_country and "region" in df_plot.columns
+    else pd.Series(False, index=df_plot.index)
+)
+highlight_df = df_plot[highlight_mask]
+background = df_plot[~highlight_mask]
+
+# Sample background for performance (reduced to 100 for smaller file size)
+sample = background.sample(min(100, len(background)), random_state=42) if len(background) > 100 else background
 
 T = np.linspace(0, 20, 200)
 fig = go.Figure()
 
-# Add individual curves
+# Add background curves first so highlights render on top
 for _, row in sample.iterrows():
     alpha = row["alpha"] if "alpha" in row.index else 0
     beta = row["beta"] if "beta" in row.index else 0
@@ -390,6 +556,34 @@ for _, row in sample.iterrows():
         showlegend=False,
     ))
 
+# Highlighted countries: thicker line, distinct colour per country, visible legend
+for i, (_, row) in enumerate(highlight_df.iterrows()):
+    alpha = row["alpha"]
+    beta = row["beta"]
+    region = row["region"]
+    rsqr1 = row.get("rsqr1", 0)
+    M = alpha * T + beta * T**2
+    if abs(beta) > 1e-10:
+        T_cross = -alpha / (2 * beta)
+        cross_text = f"{T_cross:.1f}°C" if 0 <= T_cross <= 20 else "Outside [0,20]"
+    else:
+        cross_text = "Linear (no crossing)"
+    hover_text = (
+        f"<b>{region}</b> (highlight)<br>"
+        f"α: {alpha:.4f}<br>"
+        f"β: {beta:.6f}<br>"
+        f"R²: {rsqr1:.3f}<br>"
+        f"Zero crossing: {cross_text}<extra></extra>"
+    )
+    fig.add_trace(go.Scatter(
+        x=T, y=M,
+        mode="lines",
+        line=dict(color=HIGHLIGHT_PALETTE[i % len(HIGHLIGHT_PALETTE)], width=2.5),
+        name=_country_name(region),
+        hovertemplate=hover_text,
+        showlegend=True,
+    ))
+
 # Add median curve
 alpha_med = df_plot["alpha"].median()
 beta_med = df_plot["beta"].median()
@@ -409,11 +603,22 @@ fig.update_layout(
     xaxis_title="Climatic temperature change (°C)",
     yaxis_title="Regional damage function D(T)",
     template="plotly_white",
-    height=500,
+    height=520,
     hovermode="closest",
-    legend=dict(x=0.02, y=0.98),
+    # Place legend below the plot to avoid overlapping curves; keep it
+    # semi-transparent so any curves behind it remain visible.
+    legend=dict(
+        orientation="h",
+        yanchor="top", y=-0.15,
+        xanchor="center", x=0.5,
+        bgcolor="rgba(255,255,255,0.6)",
+        bordercolor="rgba(0,0,0,0.1)",
+        borderwidth=1,
+        font=dict(size=10),
+    ),
+    margin=dict(l=60, r=20, t=30, b=80),
 )
-fig.show()
+_show_plotly(fig)
 ```
 
 ---
@@ -760,14 +965,15 @@ else:
 
 ---
 
-# Worst Offenders
+# Best- and Worst-Fitting Regions
 
-The 2 worst-fitting regions by R-squared, with raw simulation data overlaid
-on the fitted polynomial curve.
+The 3 worst- and 3 best-fitting regions by R-squared, with raw simulation
+data overlaid on the fitted polynomial curve. **Red rows = worst fits**,
+**green rows = best fits**.
 
 ```{python}
-#| label: tbl-worst
-#| tbl-cap: "Worst-Fitting Regions (lowest R-squared)"
+#| label: tbl-best-worst
+#| tbl-cap: "Best- and worst-fitting regions"
 #| output: asis
 
 if len(df_median) > 0 and "rsqr1" in df_median.columns:
@@ -778,13 +984,62 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
         (df_median["beta"].abs() > 1e-10)
     ]
 
-    worst = _valid.nsmallest(2, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
-    worst.columns = ["Region", "alpha", "beta", "eta", "R2"]
-    for _c in ["alpha", "beta", "eta", "R2"]:
-        worst[_c] = worst[_c].map(lambda x: f"{x:.4f}")
+    _best  = _valid.nlargest(3, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
+    _worst = _valid.nsmallest(3, "rsqr1")[["region", "alpha", "beta", "eta", "rsqr1"]].copy()
+    _best["__kind"]  = "best"
+    _worst["__kind"] = "worst"
+    _all = pd.concat([_best, _worst], ignore_index=True)
 
-    from IPython.display import Markdown
-    display(Markdown(worst.to_markdown(index=False)))
+    # Compact number formatter: 3 sig figs, plain when |x| in [1e-3, 1e5].
+    # Avoids ugly "4.343e-06" / "0.0000" cells in favour of "4.34e-6" / "0.123".
+    def _fmt_num(x):
+        try:
+            x = float(x)
+        except Exception:
+            return str(x)
+        if x == 0:
+            return "0"
+        ax = abs(x)
+        if ax < 1e-3 or ax >= 1e5:
+            return f"{x:.2e}".replace("e-0", "e-").replace("e+0", "e+").replace("e+", "e")
+        return f"{x:.3g}"
+
+    def _fmt_row(row, kind):
+        color = "#e0f5e0" if kind == "best" else "#ffe1e0"
+        cells = (
+            f"<td style='padding:4px 10px;'>{row['region']}</td>"
+            f"<td style='padding:4px 10px;text-align:right;'>{_fmt_num(row['alpha'])}</td>"
+            f"<td style='padding:4px 10px;text-align:right;'>{_fmt_num(row['beta'])}</td>"
+            f"<td style='padding:4px 10px;text-align:right;'>{_fmt_num(row['eta'])}</td>"
+            f"<td style='padding:4px 10px;text-align:right;'>{_fmt_num(row['rsqr1'])}</td>"
+        )
+        return f"<tr style='background:{color};'>{cells}</tr>"
+
+    _rows = "".join(_fmt_row(r, r["__kind"]) for _, r in _all.iterrows())
+    _hdr = ("<tr style='background:#f0f0f0;text-align:left;'>"
+            "<th style='padding:4px 10px;'>Region</th>"
+            "<th style='padding:4px 10px;text-align:right;'>α</th>"
+            "<th style='padding:4px 10px;text-align:right;'>β</th>"
+            "<th style='padding:4px 10px;text-align:right;'>η</th>"
+            "<th style='padding:4px 10px;text-align:right;'>R²</th>"
+            "</tr>")
+    print(
+        "<div style='display:flex;justify-content:center;margin:1em 0;'>"
+        "<div>"
+        # Small in-line legend above the table
+        "<div style='text-align:center;font-size:85%;color:#555;margin-bottom:6px;'>"
+        "<span style='display:inline-block;width:10px;height:10px;background:#e0f5e0;"
+        "border:1px solid #1b7d3e;margin-right:4px;vertical-align:middle;'></span>"
+        "Top 3 best fit (R²) "
+        "&nbsp;&nbsp;"
+        "<span style='display:inline-block;width:10px;height:10px;background:#ffe1e0;"
+        "border:1px solid #a83232;margin-right:4px;vertical-align:middle;'></span>"
+        "Top 3 worst fit (R²)"
+        "</div>"
+        "<table style='border-collapse:collapse;border:1px solid #ddd;font-size:92%;'>"
+        f"<thead>{_hdr}</thead><tbody>{_rows}</tbody></table>"
+        "</div></div>"
+    )
 ```
 
 ```{python}
@@ -801,7 +1056,13 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
         (df_median["alpha"].abs() > 1e-10) &
         (df_median["beta"].abs() > 1e-10)
     ]
-    worst_2 = _valid_plot.nsmallest(2, "rsqr1")
+    # Show 3 worst + 3 best for context. The plot loop below takes a tagged
+    # frame so the title bar and curve colour can flag which is which.
+    _w = _valid_plot.nsmallest(3, "rsqr1").copy()
+    _b = _valid_plot.nlargest(3, "rsqr1").copy()
+    _w["__kind"] = "worst"
+    _b["__kind"] = "best"
+    worst_2 = pd.concat([_w, _b], ignore_index=True)
 
     # Try to load source data for raw overlay
     _raw_available = False
@@ -826,12 +1087,27 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
 
             _w_region_col = "region" if "region" in _wcols else "hierid" if "hierid" in _wcols else None
             _w_temp_col = "temperature_anomaly" if "temperature_anomaly" in _wcols else "tas" if "tas" in _wcols else None
-            if "log_yield_impact" in _wcols:
-                _w_y_col = "log_yield_impact"
-            elif "adjusted_mortality" in _wcols:
-                _w_y_col = "adjusted_mortality"
-            else:
-                _standard = {"region", "hierid", "year", "temperature_anomaly", "tas", "gdppc", "population", "rcp", "ssp", "model"}
+            # Sector-specific y-column. Without this, the fallback heuristic picks
+            # `batch` or `gcm` (string columns) for labor/energy parquets and the
+            # raw-data scatter ends up rendering categorical labels on the y-axis.
+            _SECTOR_Y = {
+                ("agriculture", None): "log_yield_impact",
+                ("mortality", None):   "adjusted_mortality",
+                ("labor", "combined"):       "labor_combined",
+                ("labor", "high_risk"):      "labor_high_risk",
+                ("labor", "low_risk"):       "labor_low_risk",
+                ("energy", "total"):           "energy_total",
+                ("energy", "electricity"):     "energy_electricity",
+                ("energy", "non_electricity"): "energy_non_electricity",
+            }
+            # Country/collapsed variants share the same y col as their base subsector
+            _sub_base = SUBSECTOR.replace("_country_collapsed", "").replace("_country", "")
+            _w_y_col = (_SECTOR_Y.get((SECTOR, _sub_base))
+                        or _SECTOR_Y.get((SECTOR, None)))
+            if _w_y_col is None or _w_y_col not in _wcols:
+                _standard = {"region", "hierid", "year", "temperature_anomaly", "tas",
+                             "gdppc", "population", "pop", "weight",
+                             "batch", "gcm", "rcp", "ssp", "model"}
                 _candidates = [c for c in _wcols if c not in _standard]
                 _w_y_col = _candidates[0] if _candidates else None
 
@@ -840,43 +1116,112 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
         except Exception as e:
             print(f"Could not load source data for overlay: {e}")
 
-    for _, row in worst_2.iterrows():
-        region = str(row["region"])
-        alpha = row["alpha"]
-        beta = row["beta"]
-        rsqr1 = row["rsqr1"]
+    # SSP -> point colour, so the reader can see whether residuals concentrate
+    # in any one socioeconomic scenario. Falls back to a neutral colour when
+    # raw data has no SSP column or an unrecognised value.
+    _SSP_COLORS = {
+        "SSP1": "#1f77b4", "SSP2": "#2ca02c", "SSP3": "#ff7f0e",
+        "SSP4": "#9467bd", "SSP5": "#d62728",
+    }
+    _NA_SSP = "#888888"
 
-        fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+    # 3x2 grid: best three on top row (green border), worst three on bottom
+    # (red border). Compact + side-by-side so the reader can compare the two
+    # extremes without scrolling.
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6), dpi=80, sharey=False)
+    bests = list(_b.itertuples(index=False))[:3]
+    worsts = list(_w.itertuples(index=False))[:3]
+    rows = [("best", bests, "#1b7d3e", "#e0f5e0"),
+            ("worst", worsts, "#a83232", "#ffe1e0")]
 
-        # Plot fitted curve
-        T = np.linspace(0, 8, 100)
-        D = alpha * T + beta * T**2
-        ax.plot(T, D, color="darkred", linewidth=2, label="Fitted polynomial")
+    _ssps_seen = set()
+    for r, (kind, group, edge_color, bg_color) in enumerate(rows):
+        for c, row in enumerate(group):
+            ax = axes[r, c]
+            region = str(row.region)
+            alpha = row.alpha
+            beta  = row.beta
+            rsqr1 = row.rsqr1
+            gamma = getattr(row, "gamma", None)
 
-        # Overlay raw data if available
-        if _raw_available:
-            try:
-                raw_region = _worst_con.execute(f"""
-                    SELECT {_w_temp_col} as T, {_w_y_col} as y
-                    FROM raw_worst
-                    WHERE {_w_region_col} = '{region}'
-                """).df()
-                ax.scatter(raw_region["T"], raw_region["y"],
-                           alpha=0.2, s=5, color="steelblue", label="Raw data")
-            except Exception:
-                pass
+            # Fitted polynomial. Includes the income elasticity term so that
+            # for sectors with non-trivial gamma (energy: ~0.4, labor: ~0.4,
+            # ag-country: 0.3-0.5) the curve matches the raw-data scale.
+            # Without Y^gamma the line is ~Y^gamma times too small and shows
+            # up as a flat line near zero. Y is the region's mean GDP per
+            # capita over the years in raw_worst (a representative value).
+            T = np.linspace(0, 8, 100)
+            Y_repr = None
+            if _raw_available and gamma is not None and "gdppc" in _wcols:
+                try:
+                    Y_repr = _worst_con.execute(
+                        f"SELECT AVG(gdppc) FROM raw_worst WHERE {_w_region_col} = '{region}'"
+                    ).fetchone()[0]
+                except Exception:
+                    Y_repr = None
+            if Y_repr and Y_repr > 0 and gamma is not None:
+                D = (alpha * T + beta * T**2) * (Y_repr ** gamma)
+                fit_label = f"Fitted: (αT+βT²)·Y^γ  (Y≈{Y_repr:.0f})"
+            else:
+                D = alpha * T + beta * T**2
+                fit_label = "Fitted polynomial (αT+βT²)"
+            ax.plot(T, D, color=edge_color, linewidth=2, label=fit_label)
 
-        ax.axhline(y=0, color="black", linewidth=0.5)
-        ax.set_xlabel("Temperature anomaly (C)", fontsize=10)
-        ax.set_ylabel("Impact", fontsize=10)
-        ax.set_title(f"{region} (R2 = {rsqr1:.3f})", fontsize=11)
-        ax.legend(fontsize=9)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.tick_params(labelsize=9)
-        plt.tight_layout()
-        plt.show()
-        plt.close()
+            # Overlay raw data, coloured by SSP
+            if _raw_available:
+                try:
+                    extra_cols = ", ssp" if "ssp" in _wcols else ""
+                    raw_region = _worst_con.execute(f"""
+                        SELECT {_w_temp_col} as T, {_w_y_col} as y{extra_cols}
+                        FROM raw_worst
+                        WHERE {_w_region_col} = '{region}'
+                    """).df()
+                    rd = raw_region.dropna(subset=["T", "y"])
+                    if "ssp" in rd.columns:
+                        for ssp_val, sub in rd.groupby("ssp"):
+                            color = _SSP_COLORS.get(str(ssp_val), _NA_SSP)
+                            _ssps_seen.add(str(ssp_val))
+                            ax.scatter(sub["T"], sub["y"], alpha=0.25, s=4,
+                                       color=color, rasterized=True)
+                    else:
+                        ax.scatter(rd["T"], rd["y"], alpha=0.25, s=4,
+                                   color="steelblue", rasterized=True)
+                except Exception:
+                    pass
+
+            ax.axhline(y=0, color="black", linewidth=0.4)
+            # Country names resolved via _country_name (pycountry-backed when
+            # available); falls back to the raw region code for IR codes.
+            _label = _country_name(region)
+            ax.set_title(f"{_label} (R² = {rsqr1:.3f})", fontsize=10, color=edge_color)
+            ax.tick_params(labelsize=8)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            for spine in ("left", "bottom"):
+                ax.spines[spine].set_color(edge_color)
+                ax.spines[spine].set_linewidth(1.2)
+            if c == 0:
+                ax.set_ylabel(f"Impact\n({'best fit' if kind == 'best' else 'worst fit'})",
+                              fontsize=9, color=edge_color, fontweight="bold")
+            if r == 1:
+                ax.set_xlabel("Temperature anomaly (°C)", fontsize=9)
+
+    # Single shared SSP legend below the grid (handles for SSPs actually seen)
+    from matplotlib.patches import Patch
+    handles = [
+        plt.Line2D([0], [0], color="#444", linewidth=2, label="Fitted polynomial"),
+    ]
+    for ssp in sorted(_ssps_seen):
+        handles.append(
+            plt.Line2D([0], [0], marker="o", linestyle="",
+                       color=_SSP_COLORS.get(ssp, _NA_SSP),
+                       markersize=6, alpha=0.6, label=f"raw, {ssp}")
+        )
+    fig.legend(handles=handles, loc="lower center", ncol=min(len(handles), 6),
+               frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.02))
+    plt.tight_layout(rect=(0, 0.05, 1, 1))
+    plt.show()
+    plt.close()
 
     if _worst_con is not None:
         _worst_con.close()
@@ -886,7 +1231,7 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
 
 # Regional Parameter Maps
 
-Maps of key parameters at the **impact region level**.
+Maps of key parameters at the **`{python} ("country" if _RESOLUTION == "country" else "impact region")`** level.
 Red = negative (damage increases with T), Blue = positive.
 
 ## Alpha (Linear Coefficient)
@@ -896,15 +1241,15 @@ Regions with negative alpha experience damage that increases with the first degr
 
 ```{python}
 #| label: fig-map-alpha
-#| fig-cap: "α (linear coefficient) at impact region level"
+#| fig-cap: "α (linear coefficient)"
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-# Impact region shapefile path
-IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+# Resolution-aware shapefile (set in the setup cell as SHAPEFILE_PATH/SHAPE_MERGE_COL)
+IR_SHAPEFILE = SHAPEFILE_PATH
 
 if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
     # Load shapefile and simplify geometry for smaller file size
@@ -912,13 +1257,17 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
     gdf["geometry"] = gdf["geometry"].simplify(0.15)
 
     # Merge with parameter data
-    gdf_merged = gdf.merge(df_median, left_on="hierid", right_on="region", how="inner")
+    gdf_merged = gdf.merge(df_median, left_on=SHAPE_MERGE_COL, right_on="region", how="inner")
 
     if len(gdf_merged) > 0:
         # Symmetric limits for alpha
         vmax = np.percentile(np.abs(gdf_merged["alpha"].dropna()), 95)
 
         fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+
+        # Background layer: full shapefile in light grey so countries / IRs
+        # without parameter values are visible as outlines instead of empty.
+        gdf.plot(ax=ax, color="#e6e6e6", edgecolor="#a0a0a0", linewidth=0.2)
 
         gdf_merged.plot(
             column="alpha",
@@ -929,7 +1278,8 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
             legend=True,
             legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
-            linewidth=0,
+            edgecolor="#a0a0a0",
+            linewidth=0.2,
         )
 
         ax.set_title(f"α (Linear Coefficient)", fontsize=10)
@@ -958,7 +1308,7 @@ print(f"The {CONSTRAINT_LABEL} constraint is enforced for this sector, meaning {
 
 ```{python}
 #| label: fig-map-beta
-#| fig-cap: "β (quadratic coefficient) at impact region level"
+#| fig-cap: "β (quadratic coefficient)"
 
 if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
     # gdf already loaded above, reuse gdf_merged
@@ -967,7 +1317,7 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
         vmax = np.percentile(np.abs(gdf_merged["beta"].dropna()), 95)
 
         fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-
+        gdf.plot(ax=ax, color="#e6e6e6", edgecolor="#a0a0a0", linewidth=0.2)
         gdf_merged.plot(
             column="beta",
             ax=ax,
@@ -977,7 +1327,8 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
             legend=True,
             legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
-            linewidth=0,
+            edgecolor="#a0a0a0",
+            linewidth=0.2,
         )
 
         ax.set_title(f"β (Quadratic Coefficient)", fontsize=10)
@@ -996,12 +1347,12 @@ captures more of the variance in the data.
 
 ```{python}
 #| label: fig-map-rsqr1
-#| fig-cap: "R² (stage 1 fit quality) at impact region level"
+#| fig-cap: "R² (stage 1 fit quality)"
 
 if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists():
     if len(gdf_merged) > 0 and "rsqr1" in gdf_merged.columns:
         fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-
+        gdf.plot(ax=ax, color="#e6e6e6", edgecolor="#a0a0a0", linewidth=0.2)
         gdf_merged.plot(
             column="rsqr1",
             ax=ax,
@@ -1011,7 +1362,8 @@ if len(df_median) > 0 and "region" in df_median.columns and IR_SHAPEFILE.exists(
             legend=True,
             legend_kwds={"shrink": 0.4},
             missing_kwds={"color": "lightgray"},
-            linewidth=0,
+            edgecolor="#a0a0a0",
+            linewidth=0.2,
         )
 
         ax.set_title(f"R² (Fit Quality)", fontsize=10)
@@ -1047,8 +1399,8 @@ from pathlib import Path
 from matplotlib.colors import LinearSegmentedColormap
 import os
 
-# Impact region shapefile
-IR_SHAPEFILE = Path("/project/cil/sacagawea_shares/gcp/climate/_spatial_data/world-combo-new-nytimes/new_shapefile.shp")
+# Resolution-aware shapefile (set in setup cell as SHAPEFILE_PATH/SHAPE_MERGE_COL)
+IR_SHAPEFILE = SHAPEFILE_PATH
 
 # Create output directory for downloadable maps
 os.makedirs("_output/maps", exist_ok=True)
@@ -1224,7 +1576,7 @@ if df_raw is not None and region_col and temp_col and y_col and target_year and 
                 # Merge with shapefile
                 gdf_scenario = gdf_base.merge(
                     merged[["region", "flex", "raw_y", "residual", "sign_match", "T_mean"]],
-                    left_on="hierid", right_on="region", how="inner"
+                    left_on=SHAPE_MERGE_COL, right_on="region", how="inner"
                 )
 
                 if len(gdf_scenario) == 0:
@@ -1239,107 +1591,245 @@ if df_raw is not None and region_col and temp_col and y_col and target_year and 
                 vmax_resid = np.percentile(gdf_scenario["residual"].abs().dropna(), 95)
 
                 # ===== ALL 4 MAPS =====
+                # Country reports: interactive plotly choropleth using ISO3
+                # codes (the region column for country resolution is exactly
+                # ISO3-equivalent, which plotly's built-in 'country names'
+                # locationmode handles natively). IR reports: stick with
+                # static matplotlib (24K hierids would need an embedded
+                # geojson and would blow up file size).
+                _interactive_maps = (_RESOLUTION == "country")
+                if _interactive_maps:
+                    import plotly.graph_objects as _pgo
+                    _map_data = gdf_scenario[
+                        ["region", "flex", "raw_y", "residual", "sign_match", "T_mean"]
+                    ].dropna(subset=["region"])
 
-                # Map 1: Flex Prediction
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-                gdf_scenario.plot(
-                    column="flex", ax=ax, cmap="RdBu",
-                    vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.4},
-                    linewidth=0, missing_kwds={"color": "lightgray"}
-                )
-                ax.set_title(f"Flex Prediction", fontsize=10)
-                ax.set_xlim(-180, 180)
-                ax.set_ylim(-60, 85)
-                ax.axis("off")
-                plt.tight_layout()
-                plt.show()
-                plt.close('all')
+                    def _plotly_choropleth(col, title, cmap, zmin, zmax, hover_extra=None):
+                        ht = (
+                            "<b>%{location}</b><br>"
+                            f"{col}: %{{z:.4g}}<br>"
+                            "T_mean: %{customdata[0]:.2f}°C<br>"
+                            "raw: %{customdata[1]:.4g}<br>"
+                            "flex: %{customdata[2]:.4g}<br>"
+                            "residual: %{customdata[3]:.4g}"
+                            "<extra></extra>"
+                        )
+                        fig = _pgo.Figure(_pgo.Choropleth(
+                            locations=_map_data["region"], locationmode="ISO-3",
+                            z=_map_data[col], colorscale=cmap, zmin=zmin, zmax=zmax,
+                            customdata=_map_data[["T_mean", "raw_y", "flex", "residual"]].values,
+                            hovertemplate=ht,
+                            colorbar=dict(thickness=10, len=0.7, title=col),
+                        ))
+                        fig.update_layout(
+                            title=dict(text=title, font=dict(size=11)),
+                            geo=dict(showframe=False, showcoastlines=True,
+                                     coastlinecolor="#888", projection_type="natural earth"),
+                            height=400, margin=dict(l=0, r=0, t=30, b=0),
+                        )
+                        _show_plotly(fig)
 
-                # Map 2: Raw Actual
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-                gdf_scenario.plot(
-                    column="raw_y", ax=ax, cmap="RdBu",
-                    vmin=-vmax_vals, vmax=vmax_vals,
-                    legend=True, legend_kwds={"shrink": 0.4},
-                    linewidth=0, missing_kwds={"color": "lightgray"}
-                )
-                ax.set_title(f"Raw Actual", fontsize=10)
-                ax.set_xlim(-180, 180)
-                ax.set_ylim(-60, 85)
-                ax.axis("off")
-                plt.tight_layout()
-                plt.show()
-                plt.close('all')
+                    # Sector-aware colour convention: red = damaging direction.
+                    #   mortality:   positive deaths/100k = bad        -> red on positive
+                    #   energy:      positive kWh excess use = bad     -> red on positive
+                    #   labor:       NEGATIVE minutes per worker = bad -> red on negative
+                    #   agriculture: NEGATIVE log_yield = bad          -> red on negative
+                    # Plotly RdBu has red on the NEGATIVE end. We flip to
+                    # RdBu_r only for sectors where the damaging direction
+                    # is positive.
+                    _damage_positive = SECTOR in ("mortality", "energy")
+                    _val_cmap = "RdBu_r" if _damage_positive else "RdBu"
+                    _plotly_choropleth("flex",     "Flex Prediction", _val_cmap, -vmax_vals,  vmax_vals)
+                    _plotly_choropleth("raw_y",    "Raw Actual",      _val_cmap, -vmax_vals,  vmax_vals)
+                    _plotly_choropleth("residual", "Difference (Flex - Raw)", "RdBu", -vmax_resid, vmax_resid)
 
-                # Map 3: Difference (Flex - Raw)
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-                gdf_scenario.plot(
-                    column="residual", ax=ax, cmap="RdBu",
-                    vmin=-vmax_resid, vmax=vmax_resid,
-                    legend=True, legend_kwds={"shrink": 0.4},
-                    linewidth=0, missing_kwds={"color": "lightgray"}
-                )
-                ax.set_title(f"Difference (Flex - Raw)", fontsize=10)
-                ax.set_xlim(-180, 180)
-                ax.set_ylim(-60, 85)
-                ax.axis("off")
-                plt.tight_layout()
-                plt.show()
-                plt.close('all')
+                    _map_data["sign_match_float"] = _map_data["sign_match"].astype(float)
+                    fig = _pgo.Figure(_pgo.Choropleth(
+                        locations=_map_data["region"], locationmode="ISO-3",
+                        z=_map_data["sign_match_float"], colorscale="RdYlGn", zmin=0, zmax=1,
+                        customdata=_map_data[["T_mean", "raw_y", "flex", "residual"]].values,
+                        hovertemplate=("<b>%{location}</b><br>match: %{z:.0f}<br>"
+                                       "T_mean: %{customdata[0]:.2f}°C<br>"
+                                       "raw: %{customdata[1]:.4g}<br>"
+                                       "flex: %{customdata[2]:.4g}<extra></extra>"),
+                        colorbar=dict(thickness=10, len=0.5, title="match"),
+                    ))
+                    fig.update_layout(
+                        title=dict(text="Sign Agreement (green=match)", font=dict(size=11)),
+                        geo=dict(showframe=False, showcoastlines=True,
+                                 coastlinecolor="#888", projection_type="natural earth"),
+                        height=400, margin=dict(l=0, r=0, t=30, b=0),
+                    )
+                    _show_plotly(fig)
+                else:
+                    # Static matplotlib (IR resolution path, unchanged behaviour)
+                    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+                    gdf_scenario.plot(column="flex", ax=ax, cmap="RdBu",
+                                      vmin=-vmax_vals, vmax=vmax_vals,
+                                      legend=True, legend_kwds={"shrink": 0.4},
+                                      linewidth=0, missing_kwds={"color": "lightgray"})
+                    ax.set_title("Flex Prediction", fontsize=10); ax.set_xlim(-180, 180); ax.set_ylim(-60, 85); ax.axis("off")
+                    plt.tight_layout(); plt.show(); plt.close('all')
 
-                # Map 4: Sign Agreement
-                fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
-                # Convert boolean to float for continuous colorbar
-                gdf_scenario["sign_match_float"] = gdf_scenario["sign_match"].astype(float)
-                gdf_scenario.plot(
-                    column="sign_match_float", ax=ax, cmap="RdYlGn",
-                    vmin=0, vmax=1,
-                    legend=True, legend_kwds={"shrink": 0.4},
-                    linewidth=0, missing_kwds={"color": "lightgray"}
-                )
-                ax.set_title(f"Sign Agreement (green=match)", fontsize=10)
-                ax.set_xlim(-180, 180)
-                ax.set_ylim(-60, 85)
-                ax.axis("off")
-                plt.tight_layout()
-                plt.show()
-                plt.close('all')
+                    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+                    gdf_scenario.plot(column="raw_y", ax=ax, cmap="RdBu",
+                                      vmin=-vmax_vals, vmax=vmax_vals,
+                                      legend=True, legend_kwds={"shrink": 0.4},
+                                      linewidth=0, missing_kwds={"color": "lightgray"})
+                    ax.set_title("Raw Actual", fontsize=10); ax.set_xlim(-180, 180); ax.set_ylim(-60, 85); ax.axis("off")
+                    plt.tight_layout(); plt.show(); plt.close('all')
 
-                # Scatter plot (sample max 3000 points)
+                    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+                    gdf_scenario.plot(column="residual", ax=ax, cmap="RdBu",
+                                      vmin=-vmax_resid, vmax=vmax_resid,
+                                      legend=True, legend_kwds={"shrink": 0.4},
+                                      linewidth=0, missing_kwds={"color": "lightgray"})
+                    ax.set_title("Difference (Flex - Raw)", fontsize=10); ax.set_xlim(-180, 180); ax.set_ylim(-60, 85); ax.axis("off")
+                    plt.tight_layout(); plt.show(); plt.close('all')
+
+                    fig, ax = plt.subplots(figsize=(8, 4), dpi=60)
+                    gdf_scenario["sign_match_float"] = gdf_scenario["sign_match"].astype(float)
+                    gdf_scenario.plot(column="sign_match_float", ax=ax, cmap="RdYlGn",
+                                      vmin=0, vmax=1,
+                                      legend=True, legend_kwds={"shrink": 0.4},
+                                      linewidth=0, missing_kwds={"color": "lightgray"})
+                    ax.set_title("Sign Agreement (green=match)", fontsize=10); ax.set_xlim(-180, 180); ax.set_ylim(-60, 85); ax.axis("off")
+                    plt.tight_layout(); plt.show(); plt.close('all')
+
+                # Interactive scatter (Flex vs Raw): hover shows region +
+                # scenario context (rcp/ssp/model are fixed per tab so we add
+                # them as customdata so the user always sees what they're
+                # looking at without scrolling back to the tab labels).
                 plot_df = merged.sample(min(3000, len(merged)), random_state=42) if len(merged) > 3000 else merged
-                fig, ax = plt.subplots(figsize=(5, 4), dpi=60)
-                ax.scatter(plot_df["raw_y"], plot_df["flex"], s=6, alpha=0.4, c="steelblue")
+                import plotly.graph_objects as _pgo2
+                _scatter = _pgo2.Figure()
+                _customdata = plot_df[["T_mean", "residual"]].values
+                _hover = (
+                    "<b>%{text}</b><br>"
+                    f"RCP: {rcp} &nbsp;|&nbsp; SSP: {ssp} &nbsp;|&nbsp; Model: {model}<br>"
+                    "Raw: %{x:.4g}<br>"
+                    "Flex: %{y:.4g}<br>"
+                    "T_mean: %{customdata[0]:.2f}°C<br>"
+                    "Residual: %{customdata[1]:.4g}"
+                    "<extra></extra>"
+                )
+                _scatter.add_trace(_pgo2.Scatter(
+                    x=plot_df["raw_y"], y=plot_df["flex"],
+                    mode="markers",
+                    marker=dict(size=5, color="steelblue", opacity=0.5),
+                    text=plot_df["region"],
+                    customdata=_customdata,
+                    hovertemplate=_hover,
+                    name="region",
+                    showlegend=False,
+                ))
                 lims = [min(merged["raw_y"].min(), merged["flex"].min()),
                         max(merged["raw_y"].max(), merged["flex"].max())]
-                ax.plot(lims, lims, "r--", linewidth=1)
-                ax.set_xlabel("Raw", fontsize=9)
-                ax.set_ylabel("Flex", fontsize=9)
-                ax.set_title(f"r = {corr:.4f}", fontsize=10)
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                ax.tick_params(labelsize=8)
-                plt.tight_layout()
-                plt.show()
-                plt.close('all')
+                _scatter.add_trace(_pgo2.Scatter(
+                    x=lims, y=lims, mode="lines",
+                    line=dict(color="red", dash="dash", width=1),
+                    name="y=x", showlegend=False,
+                ))
+                _scatter.update_layout(
+                    title=dict(text=f"r = {corr:.4f}", font=dict(size=11)),
+                    xaxis_title="Raw", yaxis_title="Flex",
+                    template="plotly_white",
+                    height=380, margin=dict(l=50, r=20, t=40, b=50),
+                )
+                _show_plotly(_scatter)
 
-                # Worst 10 predictions table
-                worst = merged.nlargest(10, "abs_residual")[
+                # Single combined predictions table: best (green) at the top,
+                # worst (red) at the bottom. T is the same per region (one
+                # year, one regional mean) so we put it in the caption rather
+                # than repeat it on every row.
+                _bst  = merged.nsmallest(5, "abs_residual")[
                     ["region", "T_mean", "raw_y", "flex", "residual"]
                 ].copy()
-                worst["T_mean"] = worst["T_mean"].apply(lambda x: f"{x:.2f}")
-                worst["raw_y"] = worst["raw_y"].apply(lambda x: f"{x:.4f}")
-                worst["flex"] = worst["flex"].apply(lambda x: f"{x:.4f}")
-                worst["residual"] = worst["residual"].apply(lambda x: f"{x:.4f}")
-                worst.columns = ["Region", "T (°C)", "Raw", "Flex", "Residual"]
+                _wrst = merged.nlargest(5, "abs_residual")[
+                    ["region", "T_mean", "raw_y", "flex", "residual"]
+                ].copy()
+                _bst["__kind"]  = "best"
+                _wrst["__kind"] = "worst"
+                _all = pd.concat([_bst, _wrst], ignore_index=True)
 
-                print("\n**Worst 10 Predictions:**\n")
-                print(worst.to_markdown(index=False))
-                print("\n")
+                def _fmt_pred_num(x):
+                    try:
+                        x = float(x)
+                    except Exception:
+                        return str(x)
+                    if x == 0:
+                        return "0"
+                    ax = abs(x)
+                    if ax < 1e-3 or ax >= 1e5:
+                        return f"{x:.2e}".replace("e-0", "e-").replace("e+0", "e+").replace("e+", "e")
+                    return f"{x:.3g}"
+
+                def _fmt_pred_row(r, kind):
+                    color = "#e0f5e0" if kind == "best" else "#ffe1e0"
+                    cells = (
+                        f"<td style='padding:3px 8px;'>{r['region']}</td>"
+                        f"<td style='padding:3px 8px;text-align:right;'>{_fmt_pred_num(r['raw_y'])}</td>"
+                        f"<td style='padding:3px 8px;text-align:right;'>{_fmt_pred_num(r['flex'])}</td>"
+                        f"<td style='padding:3px 8px;text-align:right;'>{_fmt_pred_num(r['residual'])}</td>"
+                    )
+                    return f"<tr style='background:{color};'>{cells}</tr>"
+
+                _hdr = ("<tr style='background:#f0f0f0;text-align:left;'>"
+                        "<th style='padding:3px 8px;'>Region</th>"
+                        "<th style='padding:3px 8px;text-align:right;'>Raw</th>"
+                        "<th style='padding:3px 8px;text-align:right;'>Flex</th>"
+                        "<th style='padding:3px 8px;text-align:right;'>Residual</th>"
+                        "</tr>")
+                _rows = "".join(_fmt_pred_row(r, r["__kind"]) for _, r in _all.iterrows())
+                _t_summary = (f"{_all['T_mean'].min():.2f} to {_all['T_mean'].max():.2f}"
+                              if _all['T_mean'].nunique() > 1
+                              else f"{_all['T_mean'].iloc[0]:.2f}")
+
+                print(
+                    f"\n<div style='display:flex;justify-content:center;margin:1em 0;'>"
+                    f"<div style='max-width:560px;'>"
+                    # Top legend showing the colour code
+                    f"<div style='text-align:center;font-size:85%;color:#555;margin-bottom:4px;'>"
+                    f"<span style='display:inline-block;width:10px;height:10px;background:#e0f5e0;"
+                    f"border:1px solid #1b7d3e;margin-right:4px;vertical-align:middle;'></span>"
+                    f"Top 5 best predicted &nbsp;&nbsp;"
+                    f"<span style='display:inline-block;width:10px;height:10px;background:#ffe1e0;"
+                    f"border:1px solid #a83232;margin-right:4px;vertical-align:middle;'></span>"
+                    f"Top 5 worst predicted"
+                    f"</div>"
+                    # Caption with year + T summary (no T column needed in rows)
+                    f"<div style='font-size:88%;color:#666;text-align:center;margin-bottom:6px;'>"
+                    f"Year {target_year} &middot; T<sub>mean</sub> across these regions: {_t_summary}°C"
+                    f"</div>"
+                    f"<table style='border-collapse:collapse;border:1px solid #ddd;font-size:90%;width:100%;'>"
+                    f"<thead>{_hdr}</thead><tbody>{_rows}</tbody></table>"
+                    f"</div></div>\n"
+                )
 
             print(":::\n")  # close Model tabset
         print(":::\n")  # close SSP tabset
     print(":::\n")  # close RCP tabset
+
+    # Agriculture-only: the GCP crop pipelines only run sims for countries
+    # where the crop is actually grown, so country choropleths have white
+    # spots. List those countries below the F2 panel so readers know it's
+    # not a shapefile/render bug.
+    if SECTOR == "agriculture" and gdf_base is not None and len(df_median) > 0:
+        _has_data = set(df_median["region"].astype(str).unique())
+        _all_iso3 = set(gdf_base[SHAPE_MERGE_COL].astype(str).unique())
+        _missing = sorted(c for c in (_all_iso3 - _has_data) if len(c) == 3)
+        if _missing:
+            _missing_names = [_country_name(c) for c in _missing]
+            _crop_label = SUBSECTOR.replace("_country_collapsed", "").replace("_country", "").replace("_", " ")
+            print(
+                "<div style='background:#f7f7f7;border:1px solid #ddd;"
+                "padding:8px 12px;margin:1em 0;font-size:90%;color:#444;'>"
+                f"<b>Note &middot; countries with no {_crop_label} data</b> "
+                f"(shown white on every map above; the GCP {_crop_label} "
+                f"pipeline does not run sims for non-producing countries): "
+                + ", ".join(_missing_names) + "."
+                "</div>\n"
+            )
 
 else:
     print("*Source data not available or missing required columns.*")

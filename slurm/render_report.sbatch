@@ -45,4 +45,8 @@ python scripts/render_report.py \
 
 echo ""
 echo "Output:"
-ls -lh reports/_output/${SECTOR}_${SUBSECTOR}_ir.html 2>&1
+# Country subsectors omit the `_ir` suffix; IR subsectors keep it.
+case "$SUBSECTOR" in
+    *_country|*_country_collapsed) ls -lh reports/_output/${SECTOR}_${SUBSECTOR}.html 2>&1 ;;
+    *)                              ls -lh reports/_output/${SECTOR}_${SUBSECTOR}_ir.html 2>&1 ;;
+esac

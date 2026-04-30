@@ -2,6 +2,10 @@
 set -euo pipefail
 
 module load uv
+# Load R so the gamma fixest backend can shell out to Rscript. Failure here
+# is non-fatal: the pyfixest backend remains the default and only sectors
+# that opt into backend=fixest need R.
+module load R 2>/dev/null || echo "WARNING: module load R failed; fixest backend will not work"
 
 source /project/cil/rcc/envs/flex_damages_dev/bin/activate
 
