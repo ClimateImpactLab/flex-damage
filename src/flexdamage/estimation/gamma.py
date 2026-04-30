@@ -116,7 +116,15 @@ def estimate_gamma(
         logger.warning("Too few observations for gamma estimation")
         return _default_gamma_result(n_quantiles)
 
-    # Step 2: Run pyfixest with two-way FE and clustered SE
+    # Step 2: dispatch on backend (pyfixest default, R fixest opt-in)
+    backend = getattr(gamma_config, "backend", "pyfixest")
+    if backend == "fixest":
+        try:
+            return _estimate_gamma_fixest_r(df, gamma_config, n_quantiles, n_obs, n_groups)
+        except Exception as e:
+            logger.error(f"R fixest backend failed: {e}; falling back to pyfixest")
+            # fall through to pyfixest path
+
     try:
         import pyfixest as pf
     except ImportError:
@@ -181,6 +189,135 @@ def estimate_gamma(
     # Step 3: Generate quantiles from normal distribution
     gamma_quantiles = _compute_quantiles(gamma, gamma_se, n_quantiles)
 
+    return {
+        "gamma": gamma,
+        "gamma_se": gamma_se,
+        "gamma_se_iid": gamma_se_iid,
+        "gamma_se_hc1": gamma_se_hc1,
+        "gamma_se_clustered": gamma_se_clustered,
+        "r_squared": r_squared,
+        "n_obs": n_obs,
+        "n_fe_groups": n_groups,
+        "gamma_quantiles": gamma_quantiles,
+    }
+
+
+_R_GAMMA_SCRIPT = r"""
+suppressMessages({
+  library(fixest)
+  library(jsonlite)
+})
+args <- commandArgs(trailingOnly = TRUE)
+in_file   <- args[1]
+out_json  <- args[2]
+n_threads <- if (length(args) >= 3) as.integer(args[3]) else parallel::detectCores()
+file_kind <- if (length(args) >= 4) args[4] else "csv"
+tol       <- if (length(args) >= 5) as.numeric(args[5]) else 1e-10
+setFixest_nthreads(n_threads)
+t0 <- Sys.time()
+if (file_kind == "parquet") {
+  suppressMessages({ library(duckdb); library(DBI) })
+  con <- dbConnect(duckdb::duckdb())
+  dbExecute(con, sprintf("SET threads = %d", n_threads))
+  df <- dbGetQuery(con, sprintf("SELECT * FROM read_parquet('%s')", in_file))
+  dbDisconnect(con, shutdown = TRUE)
+} else {
+  suppressMessages(library(data.table))
+  setDTthreads(n_threads)
+  df <- fread(in_file)
+}
+df$year     <- as.integer(df$year)
+df$fe_group <- as.factor(df$fe_group)
+t_read <- as.numeric(Sys.time() - t0, units = "secs")
+cat(sprintf("R read (%s): %.2fs (%d rows)\n", file_kind, t_read, nrow(df)))
+t1 <- Sys.time()
+m_iid     <- feols(y ~ log_income | fe_group + year, data = df, weights = ~w, vcov = "iid",       fixef.tol = tol)
+m_hc1     <- feols(y ~ log_income | fe_group + year, data = df, weights = ~w, vcov = "hetero",    fixef.tol = tol)
+m_clust   <- feols(y ~ log_income | fe_group + year, data = df, weights = ~w,
+                   cluster = ~fe_group + year, fixef.tol = tol)
+elapsed <- as.numeric(Sys.time() - t1, units = "secs")
+gamma          <- unname(m_iid$coefficients["log_income"])
+se_iid         <- unname(sqrt(diag(m_iid$cov.scaled))["log_income"])
+se_hc1         <- unname(sqrt(diag(m_hc1$cov.scaled))["log_income"])
+se_clustered   <- unname(sqrt(diag(m_clust$cov.scaled))["log_income"])
+r2 <- tryCatch(as.numeric(fitstat(m_iid, "r2", simplify = TRUE)), error = function(e) NA_real_)
+out <- list(
+  gamma              = gamma,
+  gamma_se_iid       = se_iid,
+  gamma_se_hc1       = se_hc1,
+  gamma_se_clustered = se_clustered,
+  r_squared          = r2,
+  elapsed_sec        = elapsed,
+  n_threads_used     = n_threads
+)
+write(jsonlite::toJSON(out, auto_unbox = TRUE, na = "null", digits = NA), out_json)
+cat(sprintf("R fixest: gamma=%.6f, SE_clust=%.6f, elapsed=%.2fs\n", gamma, se_clustered, elapsed))
+"""
+
+
+def _r_has_duckdb(rscript: str = "Rscript") -> bool:
+    """Probe whether R has duckdb + DBI for parquet handoff."""
+    import subprocess
+    code = "q(status = if (requireNamespace('duckdb', quietly=TRUE) && requireNamespace('DBI', quietly=TRUE)) 0 else 1)"
+    try:
+        r = subprocess.run([rscript, "-e", code], capture_output=True, timeout=20)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _estimate_gamma_fixest_r(df, gamma_config, n_quantiles: int, n_obs: int, n_groups: int) -> Dict:
+    """Run the gamma FE regression via R fixest (50-200x faster than pyfixest at scale)."""
+    import json
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    rscript = "Rscript"
+    n_threads = int(os.environ.get("OMP_NUM_THREADS", os.cpu_count() or 4))
+    use_parquet = _r_has_duckdb(rscript)
+    file_kind = "parquet" if use_parquet else "csv"
+    logger.info(f"R fixest backend: handoff via {file_kind}, threads={n_threads}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        if use_parquet:
+            in_file = tmp / "prepped.parquet"
+            df[["y", "log_income", "year", "fe_group", "w"]].to_parquet(
+                in_file, index=False, compression="zstd"
+            )
+        else:
+            in_file = tmp / "prepped.csv"
+            df[["y", "log_income", "year", "fe_group", "w"]].to_csv(in_file, index=False)
+        script_file = tmp / "gamma.R"
+        out_json = tmp / "result.json"
+        script_file.write_text(_R_GAMMA_SCRIPT)
+
+        cmd = [rscript, str(script_file), str(in_file), str(out_json),
+               str(n_threads), file_kind, "1e-10"]
+        logger.info(f"Running R fixest: {' '.join(cmd[:3])} ...")
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.stdout:
+            for line in proc.stdout.strip().splitlines():
+                logger.info(f"  [R] {line}")
+        if proc.returncode != 0:
+            logger.error(proc.stderr)
+            raise RuntimeError(f"R fixest exited {proc.returncode}")
+
+        with open(out_json) as f:
+            res = json.load(f)
+
+    gamma = float(res["gamma"])
+    gamma_se_iid = float(res["gamma_se_iid"])
+    gamma_se_hc1 = float(res["gamma_se_hc1"])
+    gamma_se_clustered = float(res["gamma_se_clustered"])
+    gamma_se = gamma_se_clustered  # primary SE
+    r_squared = float(res["r_squared"]) if res.get("r_squared") is not None else 0.0
+
+    logger.info(f"Gamma: {gamma:.6f} (SE: {gamma_se:.6f}, R^2: {r_squared:.4f}) via R fixest")
+
+    gamma_quantiles = _compute_quantiles(gamma, gamma_se, n_quantiles)
     return {
         "gamma": gamma,
         "gamma_se": gamma_se,

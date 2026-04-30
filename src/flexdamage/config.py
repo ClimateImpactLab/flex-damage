@@ -55,6 +55,10 @@ class SectorSettings(BaseModel):
     methodology_ref: Optional[str] = Field(
         None, description="Pointer to the methodology doc / section used"
     )
+    resolution: Optional[str] = Field(
+        None,
+        description="Spatial resolution: 'ir' (default), 'country', etc. Reports use this to pick the correct shapefile.",
+    )
 
 
 # =============================================================================
@@ -113,6 +117,14 @@ class DataSettings(BaseModel):
         description="Path to external GDP/pop data if needs joining",
     )
 
+    # MC ensemble handling: when False (default), preserve every batch x GCM
+    # draw as a separate observation in the input parquet. When True, collapse
+    # to a per-(rcp, ssp, model) scenario mean. CLI flags on builders override.
+    collapse_mc: bool = Field(
+        False,
+        description="If True, collapse batch+GCM Monte Carlo draws to scenario means before estimation",
+    )
+
 
 # =============================================================================
 # Estimation Settings
@@ -125,6 +137,12 @@ class GammaSettings(BaseModel):
     method: Literal["fixed_effects", "ols"] = Field(
         "fixed_effects",
         description="Estimation method: fixed_effects (R reference) or simple ols",
+    )
+
+    backend: Literal["pyfixest", "fixest"] = Field(
+        "pyfixest",
+        description="Backend for fixed-effects regression: pyfixest (Python, default) or "
+                    "fixest (R via subprocess; ~50-200x faster on large data, requires R + fixest + data.table + jsonlite installed)",
     )
 
     temperature_bins: float = Field(
