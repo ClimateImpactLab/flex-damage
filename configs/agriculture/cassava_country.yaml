@@ -1,25 +1,29 @@
 # =============================================================================
-# FlexDamage v3 - Agriculture Cassava Configuration
+# FlexDamage v3 - agriculture cassava_country Country-Level Configuration
 # =============================================================================
+# Country-resolution analog of cassava.yaml. Same estimation logic,
+# different input parquet (country-aggregated) and output naming.
 
 run:
-  name: agriculture_cassava_ir
-  description: "Cassava yield response estimation - Impact Region resolution"
+  name: agriculture_cassava_country_ir
+  description: "agriculture cassava response estimation - Country resolution"
 
 sector:
   name: agriculture
-  subsector: cassava
+  subsector: cassava_country
   units: "log_yield_change"
-  adaptation: na
+  units_description: "Log change in cassava yield (kg/Ha, log scale): country-level rows extracted from the projection system's 5716-region hierarchy aggregated.nc4 file (1% winsorization variant); log_yield_impact = main.rebased - histclim.rebased."
+  adaptation: fulladapt
+  resolution: country
 
-  units_description: "Log change in cassava yield (kg/Ha, log scale): computed at IR level from the projection system's per-IR yield outputs (rebased to 2005 baseline)."
   source_variable: "rebased (log kg/Ha)"
   source_nc4_main: "cassava-<DDMMYY>-aggregated.nc4 (DDMMYY: 110221=cassava, 160221=corn/rice/soy/sorghum, 280823=wheat*)"
   source_nc4_hist: "cassava-<DDMMYY>-histclim-aggregated.nc4"
   methodology_ref: "CIL 'art of rebasing and histclim' (2020) Section 2.3.1; agriculture-specific 1% winsorization documented in CIL agriculture pipeline"
 data:
-  source: /project/cil/home_dirs/scadavidsanchez/projects/flex-damages-data/agriculture/cassava/ir/ir.zarr
-  format: zarr
+  source: /scratch/midway3/cadavidsanchez/flex-damages/agriculture/country_keepmc_full/agriculture_cassava_aggregated_country_keepmc_full.parquet
+  format: parquet
+  collapse_mc: false   # default: keep all MC draws
 
   columns:
     y: log_yield_impact
@@ -40,6 +44,7 @@ estimation:
 
   gamma:
     method: fixed_effects
+    backend: fixest        # R fixest (50-200x faster on big keep-MC datasets)
     temperature_bins: 0.5
     cluster_se: true
     include_sign_in_fe: true
@@ -47,7 +52,7 @@ estimation:
     trim_percentile: 0.05
 
   regional:
-    min_observations: 10
+    min_observations: 5
     ridge_lambda: 1.0e-8
 
   constraints:
@@ -56,9 +61,9 @@ estimation:
       value: 0
 
 output:
-  results_dir: /project/cil/gcp/flex_damage_funcs/results/agriculture/cassava
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/agriculture/cassava_country
   parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
 
 execution:
   workers: 0
-  memory_limit_gb: 200
+  memory_limit_gb: 60
