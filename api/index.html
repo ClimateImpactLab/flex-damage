@@ -381,7 +381,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#standardizeconfig-output_pathnone-str" class="md-nav__link">
+  <a href="#standardize" class="md-nav__link">
     standardize(config, output_path=None) -&gt; str
   </a>
   
@@ -401,21 +401,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#estimate_gammacon-config-dict" class="md-nav__link">
+  <a href="#estimate_gamma" class="md-nav__link">
     estimate_gamma(con, config) -&gt; dict
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#fit_regional_polynomialscon-gamma-config-dataframe" class="md-nav__link">
+  <a href="#fit_regional_polynomials" class="md-nav__link">
     fit_regional_polynomials(con, gamma, config) -&gt; DataFrame
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#compute_all_error_termscon-regional_params-gamma-config-dataframe" class="md-nav__link">
+  <a href="#compute_all_error_terms" class="md-nav__link">
     compute_all_error_terms(con, regional_params, gamma, config) -&gt; DataFrame
   </a>
   
@@ -542,7 +542,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#standardizeconfig-output_pathnone-str" class="md-nav__link">
+  <a href="#standardize" class="md-nav__link">
     standardize(config, output_path=None) -&gt; str
   </a>
   
@@ -562,21 +562,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#estimate_gammacon-config-dict" class="md-nav__link">
+  <a href="#estimate_gamma" class="md-nav__link">
     estimate_gamma(con, config) -&gt; dict
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#fit_regional_polynomialscon-gamma-config-dataframe" class="md-nav__link">
+  <a href="#fit_regional_polynomials" class="md-nav__link">
     fit_regional_polynomials(con, gamma, config) -&gt; DataFrame
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#compute_all_error_termscon-regional_params-gamma-config-dataframe" class="md-nav__link">
+  <a href="#compute_all_error_terms" class="md-nav__link">
     compute_all_error_terms(con, regional_params, gamma, config) -&gt; DataFrame
   </a>
   
@@ -763,7 +763,7 @@
 </table>
 <hr />
 <h2 id="data-preparation">Data Preparation<a class="headerlink" href="#data-preparation" title="Permanent link">&para;</a></h2>
-<h3 id="standardizeconfig-output_pathnone-str"><code>standardize(config, output_path=None) -&gt; str</code><a class="headerlink" href="#standardizeconfig-output_pathnone-str" title="Permanent link">&para;</a></h3>
+<h3 id="standardize"><code>standardize(config, output_path=None) -&gt; str</code><a class="headerlink" href="#standardize" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flexdamage.build.standardize</span><span class="w"> </span><span class="kn">import</span> <span class="n">standardize</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">parquet_path</span> <span class="o">=</span> <span class="n">standardize</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -854,7 +854,7 @@ a standardized parquet file with fixed column names for downstream estimation.</
 </table>
 <hr />
 <h2 id="estimation">Estimation<a class="headerlink" href="#estimation" title="Permanent link">&para;</a></h2>
-<h3 id="estimate_gammacon-config-dict"><code>estimate_gamma(con, config) -&gt; dict</code><a class="headerlink" href="#estimate_gammacon-config-dict" title="Permanent link">&para;</a></h3>
+<h3 id="estimate_gamma"><code>estimate_gamma(con, config) -&gt; dict</code><a class="headerlink" href="#estimate_gamma" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flexdamage.estimation.gamma</span><span class="w"> </span><span class="kn">import</span> <span class="n">estimate_gamma</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">global_results</span> <span class="o">=</span> <span class="n">estimate_gamma</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -934,7 +934,7 @@ clustered standard errors (Cameron, Gelbach &amp; Miller 2011).</p>
 <p>Positive gamma indicates adaptation: richer regions experience smaller damages
 from the same temperature change.</p>
 <hr />
-<h3 id="fit_regional_polynomialscon-gamma-config-dataframe"><code>fit_regional_polynomials(con, gamma, config) -&gt; DataFrame</code><a class="headerlink" href="#fit_regional_polynomialscon-gamma-config-dataframe" title="Permanent link">&para;</a></h3>
+<h3 id="fit_regional_polynomials"><code>fit_regional_polynomials(con, gamma, config) -&gt; DataFrame</code><a class="headerlink" href="#fit_regional_polynomials" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flexdamage.estimation.regional</span><span class="w"> </span><span class="kn">import</span> <span class="n">fit_regional_polynomials</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">regional_df</span> <span class="o">=</span> <span class="n">fit_regional_polynomials</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -1033,7 +1033,7 @@ from the same temperature change.</p>
 <p>Uses vectorized OLS via sufficient statistics (no Python loops over regions).
 Constraints (e.g., <code>beta &lt;= 0</code> for agriculture) are applied post-estimation.</p>
 <hr />
-<h3 id="compute_all_error_termscon-regional_params-gamma-config-dataframe"><code>compute_all_error_terms(con, regional_params, gamma, config) -&gt; DataFrame</code><a class="headerlink" href="#compute_all_error_termscon-regional_params-gamma-config-dataframe" title="Permanent link">&para;</a></h3>
+<h3 id="compute_all_error_terms"><code>compute_all_error_terms(con, regional_params, gamma, config) -&gt; DataFrame</code><a class="headerlink" href="#compute_all_error_terms" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flexdamage.estimation.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_all_error_terms</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">error_df</span> <span class="o">=</span> <span class="n">compute_all_error_terms</span><span class="p">(</span><span class="n">con</span><span class="p">,</span> <span class="n">regional_params</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
