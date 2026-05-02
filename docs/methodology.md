@@ -41,7 +41,7 @@ Raw simulation data (from Monte Carlo runs across GCMs, RCPs, and
 SSPs) is standardized into a fixed 9-column parquet: region, year,
 y, T, log_income, w, sdev, scenario, y_sign.
 
-**Code**: [`standardize()`](api.md#standardize)
+**Code**: [`standardize()`](https://climateimpactlab.github.io/flex-damage/api/#standardize)
 
 ### 2. Income elasticity (gamma)
 
@@ -61,7 +61,7 @@ Observations where the outcome is negative are assigned to separate
 fixed-effect groups. Values below the 5th percentile of $|N|$ are
 dropped.
 
-**Code**: [`estimate_gamma()`](api.md#estimate_gamma)
+**Code**: [`estimate_gamma()`](https://climateimpactlab.github.io/flex-damage/api/#estimate_gamma)
 
 ### 3. Global polynomial
 
@@ -88,7 +88,7 @@ $\beta \geq 0$ for mortality (convexity).
 The intercept $\delta_i$ is dropped from the output: at
 pre-industrial temperatures ($T = 0$), damage is zero.
 
-**Code**: [`fit_regional_polynomials()`](api.md#fit_regional_polynomials)
+**Code**: [`fit_regional_polynomials()`](https://climateimpactlab.github.io/flex-damage/api/#fit_regional_polynomials)
 
 ### 5. Error terms
 
@@ -103,7 +103,7 @@ pre-industrial by construction.
 
 **$\eta_{ik}$**: Standard deviation of $\phi_{it}$.
 
-**Code**: [`compute_all_error_terms()`](api.md#compute_all_error_terms)
+**Code**: [`compute_all_error_terms()`](https://climateimpactlab.github.io/flex-damage/api/#compute_all_error_terms)
 
 ### 6. Output
 
