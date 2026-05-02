@@ -66,7 +66,7 @@ Runs the complete estimation workflow:
 
 ## Data Preparation
 
-### `standardize(config, output_path=None) -> str`
+### `standardize(config, output_path=None) -> str` {#standardize}
 
 ```python
 from flexdamage.build.standardize import standardize
@@ -108,7 +108,7 @@ a standardized parquet file with fixed column names for downstream estimation.
 
 ## Estimation
 
-### `estimate_gamma(con, config) -> dict`
+### `estimate_gamma(con, config) -> dict` {#estimate_gamma}
 
 ```python
 from flexdamage.estimation.gamma import estimate_gamma
@@ -153,7 +153,7 @@ from the same temperature change.
 
 ---
 
-### `fit_regional_polynomials(con, gamma, config) -> DataFrame`
+### `fit_regional_polynomials(con, gamma, config) -> DataFrame` {#fit_regional_polynomials}
 
 ```python
 from flexdamage.estimation.regional import fit_regional_polynomials
@@ -202,7 +202,7 @@ Constraints (e.g., `beta <= 0` for agriculture) are applied post-estimation.
 
 ---
 
-### `compute_all_error_terms(con, regional_params, gamma, config) -> DataFrame`
+### `compute_all_error_terms(con, regional_params, gamma, config) -> DataFrame` {#compute_all_error_terms}
 
 ```python
 from flexdamage.estimation.errors import compute_all_error_terms
