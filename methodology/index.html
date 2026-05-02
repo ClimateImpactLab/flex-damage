@@ -590,7 +590,7 @@ the correlation between regional and global <span class="arithmatex">\(\theta\)<
 <p>Raw simulation data (from Monte Carlo runs across GCMs, RCPs, and
 SSPs) is standardized into a fixed 9-column parquet: region, year,
 y, T, log_income, w, sdev, scenario, y_sign.</p>
-<p><strong>Code</strong>: <a href="../api/#standardize"><code>standardize()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#standardize"><code>standardize()</code></a></p>
 <h3 id="2-income-elasticity-gamma">2. Income elasticity (gamma)<a class="headerlink" href="#2-income-elasticity-gamma" title="Permanent link">&para;</a></h3>
 <p>Taking logs of the damage function isolates <span class="arithmatex">\(\gamma\)</span>:</p>
 <div class="arithmatex">\[\log N_{it} = \sum_k \theta_{i,k}(T_t) + \gamma \log Y_{it} + \delta_t\]</div>
@@ -603,7 +603,7 @@ We extract 19 quantiles (5% through 95%) from
 <p>Observations where the outcome is negative are assigned to separate
 fixed-effect groups. Values below the 5th percentile of <span class="arithmatex">\(|N|\)</span> are
 dropped.</p>
-<p><strong>Code</strong>: <a href="../api/#estimate_gamma"><code>estimate_gamma()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#estimate_gamma"><code>estimate_gamma()</code></a></p>
 <h3 id="3-global-polynomial">3. Global polynomial<a class="headerlink" href="#3-global-polynomial" title="Permanent link">&para;</a></h3>
 <p>Population-weighted global averages by year and scenario are fit
 with a quadratic:</p>
@@ -620,7 +620,7 @@ are config-driven: <span class="arithmatex">\(\beta \leq 0\)</span> for agricult
 <span class="arithmatex">\(\beta \geq 0\)</span> for mortality (convexity).</p>
 <p>The intercept <span class="arithmatex">\(\delta_i\)</span> is dropped from the output: at
 pre-industrial temperatures (<span class="arithmatex">\(T = 0\)</span>), damage is zero.</p>
-<p><strong>Code</strong>: <a href="../api/#fit_regional_polynomials"><code>fit_regional_polynomials()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#fit_regional_polynomials"><code>fit_regional_polynomials()</code></a></p>
 <h3 id="5-error-terms">5. Error terms<a class="headerlink" href="#5-error-terms" title="Permanent link">&para;</a></h3>
 <p>Three additional uncertainty components:</p>
 <p><strong><span class="arithmatex">\(\rho_i\)</span></strong>: Pearson correlation between regional and global polynomial
@@ -629,7 +629,7 @@ residuals. Maintains spatial covariance in Monte Carlo draws.</p>
 intercept: <span class="arithmatex">\(E_{it} = \zeta_{ik} T_t + \phi_{it}\)</span>. Zero at
 pre-industrial by construction.</p>
 <p><strong><span class="arithmatex">\(\eta_{ik}\)</span></strong>: Standard deviation of <span class="arithmatex">\(\phi_{it}\)</span>.</p>
-<p><strong>Code</strong>: <a href="../api/#compute_all_error_terms"><code>compute_all_error_terms()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#compute_all_error_terms"><code>compute_all_error_terms()</code></a></p>
 <h3 id="6-output">6. Output<a class="headerlink" href="#6-output" title="Permanent link">&para;</a></h3>
 <p>Each row contains 12 fields. <code>region</code> identifies the location. <code>gamma</code> is the income elasticity quantile value for this row (there are 19 rows per region, one per quantile). <code>alpha</code> and <code>beta</code> are the linear and quadratic temperature coefficients in the polynomial <span class="arithmatex">\(D(T) = \alpha T + \beta T^2\)</span>. The variance-covariance matrix of <span class="arithmatex">\((\alpha, \beta)\)</span> is given by <code>sigma11</code> (variance of alpha), <code>sigma12</code> (covariance), and <code>sigma22</code> (variance of beta), enabling joint uncertainty sampling. <code>rho</code> is the correlation between regional and global polynomial residuals, used to maintain spatial covariance in Monte Carlo draws. <code>zeta</code> is the temperature-dependent error scale and <code>eta</code> is the residual noise standard deviation; together they describe the prediction uncertainty that grows with temperature. <code>rsqr1</code> measures the polynomial fit quality and <code>rsqr2</code> measures the error model fit.</p>
 <h2 id="comparison-methodology-flex-vs-raw">Comparison methodology (flex vs raw)<a class="headerlink" href="#comparison-methodology-flex-vs-raw" title="Permanent link">&para;</a></h2>

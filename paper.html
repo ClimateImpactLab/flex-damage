@@ -3471,7 +3471,7 @@ a:hover { text-decoration: underline; }
 <section id="data-standardization" class="level3" data-number="2.3.1">
 <h3 data-number="2.3.1" class="anchored" data-anchor-id="data-standardization"><span class="header-section-number">2.3.1</span> 1. Data standardization</h3>
 <p>Raw simulation data (from Monte Carlo runs across GCMs, RCPs, and SSPs) is standardized into a fixed 9-column parquet: region, year, y, T, log_income, w, sdev, scenario, y_sign.</p>
-<p><strong>Code</strong>: <a href="api.md#standardize"><code>standardize()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#standardize"><code>standardize()</code></a></p>
 </section>
 <section id="income-elasticity-gamma" class="level3" data-number="2.3.2">
 <h3 data-number="2.3.2" class="anchored" data-anchor-id="income-elasticity-gamma"><span class="header-section-number">2.3.2</span> 2. Income elasticity (gamma)</h3>
@@ -3480,7 +3480,7 @@ a:hover { text-decoration: underline; }
 <p>The non-parametric temperature terms are absorbed by fixed effects (sign <span class="math inline">\(\times\)</span> region <span class="math inline">\(\times\)</span> temperature bin), and year fixed effects control for time trends.</p>
 <p>Standard errors are clustered two-way by entity group and year. We extract 19 quantiles (5% through 95%) from <span class="math inline">\(N(\hat{\gamma}, SE(\hat{\gamma}))\)</span>.</p>
 <p>Observations where the outcome is negative are assigned to separate fixed-effect groups. Values below the 5th percentile of <span class="math inline">\(|N|\)</span> are dropped.</p>
-<p><strong>Code</strong>: <a href="api.md#estimate_gamma"><code>estimate_gamma()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#estimate_gamma"><code>estimate_gamma()</code></a></p>
 </section>
 <section id="global-polynomial" class="level3" data-number="2.3.3">
 <h3 data-number="2.3.3" class="anchored" data-anchor-id="global-polynomial"><span class="header-section-number">2.3.3</span> 3. Global polynomial</h3>
@@ -3494,7 +3494,7 @@ a:hover { text-decoration: underline; }
 <p><span class="math display">\[N_{it} / Y_{it}^{\gamma} = \delta_i + \alpha_i T_t + \beta_i T_t^2 + \epsilon_{it}\]</span></p>
 <p>Sufficient statistics are computed via a single SQL GROUP BY query, then solved as a batch of 3x3 linear systems in numpy. Constraints are config-driven: <span class="math inline">\(\beta \leq 0\)</span> for agriculture (concavity), <span class="math inline">\(\beta \geq 0\)</span> for mortality (convexity).</p>
 <p>The intercept <span class="math inline">\(\delta_i\)</span> is dropped from the output: at pre-industrial temperatures (<span class="math inline">\(T = 0\)</span>), damage is zero.</p>
-<p><strong>Code</strong>: <a href="api.md#fit_regional_polynomials"><code>fit_regional_polynomials()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#fit_regional_polynomials"><code>fit_regional_polynomials()</code></a></p>
 </section>
 <section id="error-terms" class="level3" data-number="2.3.5">
 <h3 data-number="2.3.5" class="anchored" data-anchor-id="error-terms"><span class="header-section-number">2.3.5</span> 5. Error terms</h3>
@@ -3502,7 +3502,7 @@ a:hover { text-decoration: underline; }
 <p><strong><span class="math inline">\(\rho_i\)</span></strong>: Pearson correlation between regional and global polynomial residuals. Maintains spatial covariance in Monte Carlo draws.</p>
 <p><strong><span class="math inline">\(\zeta_{ik}\)</span></strong>: Temperature-dependent error scale, fit without intercept: <span class="math inline">\(E_{it} = \zeta_{ik} T_t + \phi_{it}\)</span>. Zero at pre-industrial by construction.</p>
 <p><strong><span class="math inline">\(\eta_{ik}\)</span></strong>: Standard deviation of <span class="math inline">\(\phi_{it}\)</span>.</p>
-<p><strong>Code</strong>: <a href="api.md#compute_all_error_terms"><code>compute_all_error_terms()</code></a></p>
+<p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#compute_all_error_terms"><code>compute_all_error_terms()</code></a></p>
 </section>
 <section id="output" class="level3" data-number="2.3.6">
 <h3 data-number="2.3.6" class="anchored" data-anchor-id="output"><span class="header-section-number">2.3.6</span> 6. Output</h3>
@@ -4006,122 +4006,38 @@ a:hover { text-decoration: underline; }
 </section>
 <section id="available-reports" class="level2" data-number="6.6">
 <h2 data-number="6.6" class="anchored" data-anchor-id="available-reports"><span class="header-section-number">6.6</span> Available reports</h2>
-<p>All reports are hosted at <a href="https://c1587s.github.io/flex-damage-reports/">c1587s.github.io/flex-damage-reports</a>. Click any cell below to open the corresponding report. An empty cell means that combination is not produced.</p>
+<p>All reports are hosted at <a href="https://c1587s.github.io/flex-damage-reports/">c1587s.github.io/flex-damage-reports</a>. Each subsector name below is a direct link to its report. Empty cells indicate combinations that are not produced.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
-<th>Sector</th>
-<th>Subsector</th>
-<th style="text-align: center;">Impact region</th>
-<th style="text-align: center;">Country</th>
-<th style="text-align: center;">Country (unconstrained)</th>
+<th>Resolution</th>
+<th>Agriculture</th>
+<th>Mortality</th>
+<th>Labor</th>
+<th>Energy</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Agriculture</td>
-<td>Cassava</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
+<td><strong>Impact region</strong></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_ir.html" target="_blank">Cassava</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html" target="_blank">Corn</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html" target="_blank">Rice</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html" target="_blank">Sorghum</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html" target="_blank">Soy</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html" target="_blank">Wheat (combined)</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html" target="_blank">Wheat (spring)</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html" target="_blank">Wheat (winter)</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html" target="_blank">All-cause all-age</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html" target="_blank">Combined</a> · <a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html" target="_blank">High-risk</a> · <a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html" target="_blank">Low-risk</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_ir.html" target="_blank">Total</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html" target="_blank">Electricity</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html" target="_blank">Non-electricity</a></td>
 </tr>
 <tr class="even">
-<td>Agriculture</td>
-<td>Corn</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
+<td><strong>Country</strong></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/agriculture_cassava_country.html" target="_blank">Cassava</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_corn_country.html" target="_blank">Corn</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_country.html" target="_blank">Rice</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_country.html" target="_blank">Sorghum</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_country.html" target="_blank">Soy</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_country.html" target="_blank">Wheat (combined)</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_country.html" target="_blank">Wheat (spring)</a> · <a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_country.html" target="_blank">Wheat (winter)</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_country.html" target="_blank">All-cause all-age</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_country.html" target="_blank">Combined</a> · <a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_country.html" target="_blank">High-risk</a> · <a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_country.html" target="_blank">Low-risk</a></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country.html" target="_blank">Total</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country.html" target="_blank">Electricity</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country.html" target="_blank">Non-electricity</a></td>
 </tr>
 <tr class="odd">
-<td>Agriculture</td>
-<td>Rice</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_rice_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td>Agriculture</td>
-<td>Sorghum</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_sorghum_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td>Agriculture</td>
-<td>Soy</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_soy_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td>Agriculture</td>
-<td>Wheat (combined)</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_combined_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td>Agriculture</td>
-<td>Wheat (spring)</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_spring_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td>Agriculture</td>
-<td>Wheat (winter)</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/agriculture_wheat_winter_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td>Mortality</td>
-<td>All-cause all-age</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/mortality_allcause_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td>Labor</td>
-<td>Combined</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_combined_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td>Labor</td>
-<td>High-risk</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_high_risk_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td>Labor</td>
-<td>Low-risk</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/labor_low_risk_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td>Energy</td>
-<td>Total</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_total_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country_unconstrained.html" target="_blank">open</a></td>
-</tr>
-<tr class="even">
-<td>Energy</td>
-<td>Electricity</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country_unconstrained.html" target="_blank">open</a></td>
-</tr>
-<tr class="odd">
-<td>Energy</td>
-<td>Non-electricity</td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_ir.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country.html" target="_blank">open</a></td>
-<td style="text-align: center;"><a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country_unconstrained.html" target="_blank">open</a></td>
+<td><strong>Country (unconstrained)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+<td><a href="https://c1587s.github.io/flex-damage-reports/energy_total_country_unconstrained.html" target="_blank">Total</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_electricity_country_unconstrained.html" target="_blank">Electricity</a> · <a href="https://c1587s.github.io/flex-damage-reports/energy_non_electricity_country_unconstrained.html" target="_blank">Non-electricity</a></td>
 </tr>
 </tbody>
 </table>
