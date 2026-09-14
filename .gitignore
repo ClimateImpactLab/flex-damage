@@ -43,3 +43,5 @@ reports/sector_vignette_files/
 slurm/logs/
 .tmp/
 .zenodo_out/
+reports/.ipynb_checkpoints/
+docs/paper.html
