@@ -1,0 +1,72 @@
+# =============================================================================
+# FlexDamage v3 - Mortality All-Cause Country-Level Configuration
+# =============================================================================
+# Country-level analog of allcause.yaml. Identical estimation logic; only
+# differs in input parquet (country-aggregated) and output naming (subsector
+# tag is allcause_country).
+
+run:
+  name: mortality_allcause_country_collapsed_ir
+  description: "All-cause mortality response estimation - Country resolution (collapse-MC)"
+
+sector:
+  name: mortality
+  subsector: allcause_country_collapsed
+  units: "deaths_per_100k"
+  units_description: "Excess all-cause all-age deaths per 100,000 person-years attributable to climate change; country-level rows extracted from the projection system's 5716-region hierarchy file (deaths/100k is a rate so country-level value is well-defined under aggregation)."
+  adaptation: with_costs
+  resolution: country
+
+  source_variable: "rebased + costs/100k - histclim.rebased"
+  source_nc4_main: "Agespec_interaction_response-combined-aggregated.nc4"
+  source_nc4_hist: "Agespec_interaction_response-combined-histclim-aggregated.nc4"
+  methodology_ref: "Carleton et al. (2022) QJE; CIL 'art of rebasing and histclim' (2020) Section 2.3.1"
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/mortality/country_full/mortality_aggregated_country_full.parquet
+  format: parquet
+
+  columns:
+    y: adjusted_mortality
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    backend: fixest          # R fixest via subprocess; ~50-200x faster than pyfixest at scale
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    # Lower threshold than IR config: country-level samples are smaller per
+    # region (90 years * ~7 scenarios = ~600 obs vs IR's similar but with
+    # bigger noise). Keep min_observations >= 1 to drop only empty regions.
+    min_observations: 5
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: min
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/mortality/allcause_country_collapsed
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 30

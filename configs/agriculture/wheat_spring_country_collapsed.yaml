@@ -1,0 +1,69 @@
+# =============================================================================
+# FlexDamage v3 - agriculture wheat_spring_country Country-Level Configuration
+# =============================================================================
+# Country-resolution analog of wheat_spring.yaml. Same estimation logic,
+# different input parquet (country-aggregated) and output naming.
+
+run:
+  name: agriculture_wheat_spring_country_collapsed_ir
+  description: "agriculture wheat_spring response estimation - Country resolution (collapse-MC)"
+
+sector:
+  name: agriculture
+  subsector: wheat_spring_country_collapsed
+  units: "log_yield_change"
+  units_description: "Log change in spring wheat yield (kg/Ha, log scale): country-level rows extracted from the 1% winsorization aggregated.nc4 file, mean-collapsed over the MC ensemble (batch x GCM)."
+  adaptation: fulladapt
+  resolution: country
+
+  source_variable: "rebased (log kg/Ha)"
+  source_nc4_main: "wheat_spring-<DDMMYY>-aggregated.nc4 (DDMMYY: 110221=cassava, 160221=corn/rice/soy/sorghum, 280823=wheat*)"
+  source_nc4_hist: "wheat_spring-<DDMMYY>-histclim-aggregated.nc4"
+  methodology_ref: "CIL 'art of rebasing and histclim' (2020) Section 2.3.1; agriculture-specific 1% winsorization documented in CIL agriculture pipeline"
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/agriculture/country_full/agriculture_wheat_spring_aggregated_country_full.parquet
+  format: parquet
+  collapse_mc: true   # collapse-MC variant for IR-comparable results
+
+  columns:
+    y: log_yield_impact
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    backend: fixest        # R fixest (50-200x faster on big keep-MC datasets)
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 5
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: max
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/agriculture/wheat_spring_country_collapsed
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 60

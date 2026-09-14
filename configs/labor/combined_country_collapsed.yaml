@@ -1,0 +1,65 @@
+# =============================================================================
+# FlexDamage v3 - labor combined_country Country-Level Configuration
+# =============================================================================
+# Country-resolution analog of combined.yaml. Same estimation logic,
+# different input parquet (country-aggregated) and output naming.
+
+run:
+  name: labor_combined_country_collapsed_ir
+  description: "labor combined response estimation - Country resolution (collapse-MC)"
+
+sector:
+  name: labor
+  subsector: combined_country_collapsed
+  units: "mins_per_worker_per_day"
+  units_description: "Change in productive minutes per worker per day for all workers attributable to climate change, rebased to 2005 baseline. Negative = productivity loss; positive = gain. The IR-level nc4 attribute mislabels this as portion but the values match the projection system's mins/worker/day pop-aggregated convention."
+  adaptation: fulladapt
+  resolution: country
+
+data:
+  source: /scratch/midway3/cadavidsanchez/flex-damages/labor/country_full/labor_aggregated_country_full.parquet
+  format: parquet
+  collapse_mc: true   # collapse-MC variant for IR-comparable results
+
+  columns:
+    y: labor_combined
+    temperature: temperature_anomaly
+    income: gdppc
+    weight: pop
+    region: region
+    year: year
+    sdev: null
+    scenario_columns:
+      - rcp
+      - ssp
+
+  income_is_log: false
+
+estimation:
+  formula: "alpha * T + beta * T**2"
+
+  gamma:
+    method: fixed_effects
+    backend: fixest        # R fixest (50-200x faster on big keep-MC datasets)
+    temperature_bins: 0.5
+    cluster_se: true
+    include_sign_in_fe: true
+    n_quantiles: 19
+    trim_percentile: 0.05
+
+  regional:
+    min_observations: 5
+    ridge_lambda: 1.0e-8
+
+  constraints:
+    - parameter: beta
+      type: max
+      value: 0
+
+output:
+  results_dir: /project/cil/gcp/flex_damage_funcs/results/labor/combined_country_collapsed
+  parameters_dir: /project/cil/gcp/flex_damage_funcs/parameters
+
+execution:
+  workers: 0
+  memory_limit_gb: 60
