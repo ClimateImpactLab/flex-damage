@@ -256,12 +256,37 @@ _desc = (_sector_descriptions.get((SECTOR, SUBSECTOR))
          or _sector_descriptions.get((SECTOR, _sub_base))
          or "")
 
-# Also read units from metadata if available; try both nested layouts
+# Units come from the sector's YAML config, which is the source of truth.
+# The __metadata.json fallback exists because older parameter sets were
+# estimated before the configs gained units / units_description fields,
+# and re-estimation is not needed just to fix report labels.
+import yaml as _yaml
+
+# Locate the repo's configs/ dir. Renders run inside reports/_runs/<x>/
+# (see render_report.py), so walk up from cwd; fall back to the canonical
+# cluster path. Config filenames match SUBSECTOR exactly, including
+# `_country` / `_country_collapsed` / `_unconstrained` suffixes.
+_config_candidates = [
+    parent / "configs" / SECTOR / f"{SUBSECTOR}.yaml"
+    for parent in [Path.cwd()] + list(Path.cwd().parents)
+] + [
+    Path(f"/project/cil/home_dirs/scadavidsanchez/projects/ag-flex-damage-functions/flexdamage-v3/configs/{SECTOR}/{SUBSECTOR}.yaml"),
+]
+
+_sec_cfg = {}
+for _cp in _config_candidates:
+    if _cp.exists():
+        with open(_cp) as _f:
+            _sec_cfg = (_yaml.safe_load(_f) or {}).get("sector", {}) or {}
+        print(f"<!-- units from config: {_cp} -->")
+        break
+
+# Fallback to metadata if config not found; try both nested layouts
 _sec_meta = (metadata.get("sector", {})
              or metadata.get("config", {}).get("sector", {}))
-_units = _sec_meta.get("units", "")
-_units_desc = _sec_meta.get("units_description", "")
-_adaptation = _sec_meta.get("adaptation", "full adaptation")
+_units = _sec_cfg.get("units") or _sec_meta.get("units", "")
+_units_desc = _sec_cfg.get("units_description") or _sec_meta.get("units_description", "")
+_adaptation = _sec_cfg.get("adaptation") or _sec_meta.get("adaptation", "full adaptation")
 
 if _desc:
     print(f"**{_desc}**")
