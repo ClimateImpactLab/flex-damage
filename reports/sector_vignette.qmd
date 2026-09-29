@@ -288,10 +288,34 @@ _units = _sec_cfg.get("units") or _sec_meta.get("units", "")
 _units_desc = _sec_cfg.get("units_description") or _sec_meta.get("units_description", "")
 _adaptation = _sec_cfg.get("adaptation") or _sec_meta.get("adaptation", "full adaptation")
 
+# Display scaling for readability: mortality's raw proportions render as
+# "600u" SI ticks on colorbars. An explicit display_scale in the config
+# wins; otherwise infer from the units fields.
+_disp = _sec_cfg.get("display_scale") or _sec_meta.get("display_scale")
+if _disp:
+    DISPLAY_SCALE = float(_disp)
+elif "per_100k" in _units or "100,000" in _units_desc:
+    DISPLAY_SCALE = 1e5
+else:
+    DISPLAY_SCALE = 1.0
+SCALE_NOTE = ("Values shown per 100,000 population."
+              if DISPLAY_SCALE == 1e5 else
+              f"Values shown scaled by {DISPLAY_SCALE:g}."
+              if DISPLAY_SCALE != 1.0 else "")
+# Display-only: scales this report's parameter frames in place. The report
+# exports no parameters, so Zenodo/CSV artifacts are untouched.
+if DISPLAY_SCALE != 1.0:
+    for _df_scale in (regional_df, df_median):
+        for _c in ("alpha", "beta", "zeta", "eta"):
+            if _c in _df_scale.columns:
+                _df_scale[_c] = _df_scale[_c] * DISPLAY_SCALE
+
 if _desc:
     print(f"**{_desc}**")
 if _units:
     print(f"\n**Outcome units:** `{_units}`" + (f". {_units_desc}" if _units_desc else ""))
+if SCALE_NOTE:
+    print(f"\n*{SCALE_NOTE}*")
 ```
 
 $$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
@@ -1202,6 +1226,7 @@ if len(df_median) > 0 and "rsqr1" in df_median.columns:
                         WHERE {_w_region_col} = '{region}'
                     """).df()
                     rd = raw_region.dropna(subset=["T", "y"])
+                    rd = rd.assign(y=rd["y"] * DISPLAY_SCALE)
                     if "ssp" in rd.columns:
                         for ssp_val, sub in rd.groupby("ssp"):
                             color = _SSP_COLORS.get(str(ssp_val), _NA_SSP)
@@ -1449,7 +1474,22 @@ rcps, ssps, models_list = [], [], []
 region_col, temp_col, y_col, gdp_col = None, None, None, None
 target_year = None
 
-if SOURCE_DATA.exists():
+# An unset --source-data reaches here as Path(".") (the config default is
+# ""), which exists as the cwd and would crash duckdb below - so check the
+# raw value, not just existence.
+source_data_path = str(SOURCE_DATA)
+if not source_data_path or source_data_path in ("", ".", None):
+    print("No source data provided. Skipping flex vs raw comparison.")
+    HAS_SOURCE = False
+else:
+    source_path = Path(source_data_path)
+    if not source_path.exists():
+        print(f"Source data not found: {source_path}. Skipping comparison.")
+        HAS_SOURCE = False
+    else:
+        HAS_SOURCE = True
+
+if HAS_SOURCE:
     # Handle both zarr and parquet formats
     source_path = Path(SOURCE_DATA)
     con = duckdb.connect()
@@ -1518,7 +1558,7 @@ if SOURCE_DATA.exists():
 #| output: asis
 #| results: asis
 
-if df_raw is not None and region_col and temp_col and y_col and target_year and len(df_median) > 0 and gdf_base is not None:
+if HAS_SOURCE and df_raw is not None and region_col and temp_col and y_col and target_year and len(df_median) > 0 and gdf_base is not None:
 
     # Filter to target year only
     df_year = df_raw[df_raw["year"] == target_year].copy()
@@ -1559,6 +1599,8 @@ if df_raw is not None and region_col and temp_col and y_col and target_year and 
 
                 agg = df_scenario.groupby(region_col).agg(agg_cols).reset_index()
                 agg.columns = [region_col, "T_mean", "raw_y"] + (["Y_mean"] if gdp_col else [])
+                # same display units as flex, which inherits the scaled parameters
+                agg["raw_y"] = agg["raw_y"] * DISPLAY_SCALE
 
                 # Merge with parameters
                 merged = agg.merge(
@@ -1644,7 +1686,8 @@ if df_raw is not None and region_col and temp_col and y_col and target_year and 
                             z=_map_data[col], colorscale=cmap, zmin=zmin, zmax=zmax,
                             customdata=_map_data[["T_mean", "raw_y", "flex", "residual"]].values,
                             hovertemplate=ht,
-                            colorbar=dict(thickness=10, len=0.7, title=col),
+                            colorbar=dict(thickness=10, len=0.7, title=col,
+                                          tickformat=".6~f"),
                         ))
                         fig.update_layout(
                             title=dict(text=title, font=dict(size=11)),
@@ -1867,7 +1910,7 @@ else:
 #| tbl-cap: "Fit statistics across all 12 scenarios"
 #| output: asis
 
-if 'all_stats' in dir() and all_stats:
+if HAS_SOURCE and 'all_stats' in dir() and all_stats:
     summary_df = pd.DataFrame(all_stats)
     summary_df["N"] = summary_df["N"].apply(lambda x: f"{x:,}")
     summary_df["Corr"] = summary_df["Corr"].apply(lambda x: f"{x:.4f}")

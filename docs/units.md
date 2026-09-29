@@ -14,7 +14,7 @@ where:
 | Symbol | Meaning | Units |
 |--------|---------|-------|
 | $D$ | Outcome (damage). Sector-specific (see below) | sector-specific |
-| $T$ | Local temperature anomaly | °C above 1986 to 2005 climatology |
+| $T$ | Global mean temperature anomaly (identical across regions) | °C above 1986 to 2005 climatology |
 | $Y$ | GDP per capita | 2005 USD PPP per capita |
 | $\alpha$, $\beta$ | Region-specific linear and quadratic coefficients | $D$-units / °C and $D$-units / °C² |
 | $\gamma$ | Globally-fitted income elasticity | dimensionless |
@@ -42,9 +42,17 @@ Sign conventions:
 
 ## Temperature units
 
-- Variable: local-area-weighted temperature anomaly.
+- Variable: global mean surface temperature (GMST) anomaly. Each CMIP5 GCM's
+  annual global-mean tas (including SMME surrogate patterns) is expressed as
+  an anomaly against that GCM's own climatology, then averaged across GCMs
+  within each (rcp, year). Source: the CIL `GMST_damage-function` (GMTanom)
+  product.
 - Units: °C.
-- Baseline: 1986 to 2005, computed per impact region from the GMFD reanalysis.
+- Baseline: 1986 to 2005 climatology; the ensemble-mean anomaly is zero over
+  the baseline period by construction.
+- Scope: global, not regional. Every impact region shares the same $T$ within
+  a given (rcp, year); regional variation in damages enters only through the
+  region-specific coefficients $\alpha_i$, $\beta_i$ and income $Y_{it}$.
 
 ## Income units
 

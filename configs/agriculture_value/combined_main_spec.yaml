@@ -24,8 +24,10 @@ sector:
   adaptation: fulladapt
   source_variable: "wc_no_reallocation"
   source_nc4_main: "disaggregated_damages.nc4"
-  methodology_ref: "Agriculture main_spec (epsilon_S=0.1, epsilon_D=-0.04, country markets, ag-share GDP + 10% topcode, varietal switching, CO2 fert on, full adaptation); headline scenario for Tables S15/S16, Fig 3D"
-  spec_notes: "wc = welfare cost, no_reallocation means no intra-sector reallocation of factors; disaggregation=True in raw file but wc_no_reallocation is the across-crop aggregate"
+  methodology_ref: "Agriculture main_spec (epsilon_S=0.1, epsilon_D=-0.04, trading-partner markets, ag-share GDP + 10% topcode, varietal switching, CO2 fert on, full adaptation); headline scenario for Tables S15/S16, Fig 3D"
+  spec_notes: "wc = welfare cost, no_reallocation means no intra-sector reallocation of factors; disaggregation=True in raw file but wc_no_reallocation is the across-crop aggregate. Markets: raw NC4 market_level='trading_partners'; 98.9% of impact regions trade as their own country, but real exceptions exist (small territories folded into partner groups, e.g. ABW->USA, ALA->FIN)."
+  source_crops: [rice, sorghum, cassava, soy, maize, wheat]
+  source_provenance: "Raw NC4 global attributes (identical across sims): per-crop MC inputs winsorized at 1% (filepaths montecarlo/<crop>-2025_1pct_winsorization); censoring_type=max_GAEZ_prediction; CO2_fertilization=True; disaggregation=True (market-level damages disaggregated to impact regions); agval repo commit 8cbc940"
 
 data:
   source: /scratch/midway3/cadavidsanchez/flex-damages/agval/full/agval_aggregated_full.parquet

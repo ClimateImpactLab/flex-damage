@@ -85,8 +85,8 @@ then solved as a batch of 3x3 linear systems in numpy. Constraints
 are config-driven: $\beta \leq 0$ for agriculture (concavity),
 $\beta \geq 0$ for mortality (convexity).
 
-The intercept $\delta_i$ is dropped from the output: at
-pre-industrial temperatures ($T = 0$), damage is zero.
+The intercept $\delta_i$ is dropped from the output: at the
+1986 to 2005 baseline climatology ($T = 0$), damage is zero.
 
 **Code**: [`fit_regional_polynomials()`](https://climateimpactlab.github.io/flex-damage/api/#fit_regional_polynomials)
 
@@ -98,8 +98,8 @@ Three additional uncertainty components:
 residuals. Maintains spatial covariance in Monte Carlo draws.
 
 **$\zeta_{ik}$**: Temperature-dependent error scale, fit without
-intercept: $E_{it} = \zeta_{ik} T_t + \phi_{it}$. Zero at
-pre-industrial by construction.
+intercept: $E_{it} = \zeta_{ik} T_t + \phi_{it}$. Zero at the
+1986 to 2005 baseline by construction.
 
 **$\eta_{ik}$**: Standard deviation of $\phi_{it}$.
 

@@ -45,3 +45,4 @@ slurm/logs/
 .zenodo_out/
 reports/.ipynb_checkpoints/
 docs/paper.html
+.vscode/

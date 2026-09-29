@@ -223,7 +223,7 @@ D(T, Y) = ({formula}) * Y^gamma
 ```
 
 - **D**: outcome (units below).
-- **T**: local temperature anomaly in degrees Celsius, relative to the 1986 to 2005 climatology.
+- **T**: global mean temperature anomaly in degrees Celsius, relative to the 1986 to 2005 climatology.
 - **Y**: GDP per capita, **2005 USD PPP**.
 - **alpha**, **beta**: region-specific coefficients in this CSV.
 - **gamma**: globally-fitted income elasticity (single value for this run, see `__global_results.json`).

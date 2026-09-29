@@ -78,27 +78,8 @@ done
 # Update index in reports repo
 if [ -d "$REPORTS_REPO" ]; then
     cd $REPORTS_REPO
-    python3 -c "
-import os, glob
-reports = sorted([f for f in glob.glob('agriculture_*_ir.html')])
-html = '''<!DOCTYPE html>
-<html><head><title>FlexDamage Reports</title></head>
-<body>
-<h1>Flexible Damage Function Reports</h1>
-<p>Climate Impact Lab</p>
-<h2>Agriculture (IR level)</h2>
-<ul>
-'''
-for r in reports:
-    name = r.replace('agriculture_','').replace('_ir.html','').replace('_',' ').title()
-    html += f'<li><a href=\"{r}\">{name}</a></li>\n'
-html += '''</ul>
-<p><a href=\"https://zenodo.org/records/19199919\">Parameters (Zenodo)</a> |
-<a href=\"https://climateimpactlab.github.io/flex-damage/\">Documentation</a></p>
-</body></html>'''
-open('index.html','w').write(html)
-print('Updated index.html')
-"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "${SCRIPT_DIR}/update_index.py" "${REPORTS_REPO}"
 fi
 
 echo ""

@@ -310,7 +310,7 @@ adaptation. The damage function takes the form:
 
     M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma
 
-where T is global mean temperature anomaly from pre-industrial (degrees C),
+where T is global mean temperature anomaly relative to the 1986 to 2005 climatology (degrees C),
 Y is GDP per capita, and gamma is the income elasticity. Parameters are
 provided at impact region resolution with 19 gamma quantiles per region
 for uncertainty propagation.
@@ -496,7 +496,7 @@ D(T, Y) = (alpha * T + beta * T^2) * Y^gamma
 | Symbol | Meaning | Units |
 |--------|---------|-------|
 | D      | outcome | as above |
-| T      | local temperature anomaly | degrees Celsius vs 1986-2005 climatology |
+| T      | global mean temperature anomaly | degrees Celsius vs 1986-2005 climatology |
 | Y      | GDP per capita | 2005 USD PPP per capita |
 | alpha  | linear coefficient | outcome-units / degC |
 | beta   | quadratic coefficient | outcome-units / degC^2 |
@@ -776,7 +776,7 @@ def build_zenodo_metadata(version: str, readme_content: str) -> dict:
         "each region, with globally common income elasticities capturing the "
         "benefits of income-driven adaptation. The damage function takes the "
         "form M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma, where T "
-        "is global mean temperature anomaly from pre-industrial (degrees C), "
+        "is global mean temperature anomaly relative to the 1986 to 2005 climatology (degrees C), "
         "Y is GDP per capita, and gamma is the income elasticity. Parameters "
         "are provided at impact region resolution with 19 gamma quantiles per "
         "region for uncertainty propagation."

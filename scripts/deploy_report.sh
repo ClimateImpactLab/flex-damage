@@ -40,22 +40,8 @@ echo "Report size: ${SIZE}"
 
 # 2. Update index
 cd ${REPORTS_REPO}
-python3 -c "
-import os, glob
-reports = sorted(glob.glob('*.html'))
-reports = [r for r in reports if r != 'index.html']
-html = '<html><head><title>FlexDamage Reports</title></head><body>\n'
-html += '<h1>Flexible Damage Function Reports</h1>\n'
-html += '<p>Climate Impact Lab</p>\n<ul>\n'
-for r in reports:
-    name = r.replace('.html','').replace('_',' ').title()
-    html += f'<li><a href=\"{r}\">{name}</a></li>\n'
-html += '</ul>\n'
-html += '<p><a href=\"https://zenodo.org/records/19225233\">Parameters (Zenodo)</a> | '
-html += '<a href=\"https://climateimpactlab.github.io/flex-damage/\">Documentation</a></p>\n'
-html += '</body></html>'
-open('index.html','w').write(html)
-"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "${SCRIPT_DIR}/update_index.py" "${REPORTS_REPO}"
 
 # 3. Push
 git add -A

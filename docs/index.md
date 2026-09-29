@@ -13,7 +13,7 @@ The estimated damage function is:
 $$D_{it} = (\alpha_i T_t + \beta_i T_t^2) \cdot Y_{it}^{\gamma}$$
 
 where $D_{it}$ is the impact for region $i$ at time $t$, $T_t$ is
-the global mean temperature anomaly from pre-industrial, $Y_{it}$ is
+the global mean temperature anomaly relative to the 1986 to 2005 climatology, $Y_{it}$ is
 GDP per capita, and $\gamma$ is the income elasticity.
 
 The full projection equation with uncertainty is:
