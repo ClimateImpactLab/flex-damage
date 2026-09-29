@@ -308,7 +308,7 @@ impact data. A distinct emulation function is calibrated for each region,
 with globally common income elasticities capturing the benefits of income-driven
 adaptation. The damage function takes the form:
 
-    M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma
+    D_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma
 
 where T is global mean temperature anomaly relative to the 1986 to 2005 climatology (degrees C),
 Y is GDP per capita, and gamma is the income elasticity. Parameters are
@@ -775,7 +775,7 @@ def build_zenodo_metadata(version: str, readme_content: str) -> dict:
         "climate impact data. A distinct emulation function is calibrated for "
         "each region, with globally common income elasticities capturing the "
         "benefits of income-driven adaptation. The damage function takes the "
-        "form M_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma, where T "
+        "form D_it = (alpha_i * T_t + beta_i * T_t^2) * Y_it^gamma, where T "
         "is global mean temperature anomaly relative to the 1986 to 2005 climatology (degrees C), "
         "Y is GDP per capita, and gamma is the income elasticity. Parameters "
         "are provided at impact region resolution with 19 gamma quantiles per "
