@@ -37,6 +37,7 @@ use the concept DOI.
 
 | Version | Date | DOI | Main changes |
 |---------|------|-----|---------|
+| 1.3.1 | 2026-09-30 | [10.5281/zenodo.23048639](https://zenodo.org/records/23048639) | Documentation only: corrected the T variable description in all 49 parameter READMEs (now "global mean temperature anomaly relative to the 1986 to 2005 climatology") and switched damage-function notation from M to D. No parameter values changed. |
 | 1.3.0 | 2026-04-30 | [10.5281/zenodo.19916065](https://zenodo.org/records/19916065) | Country-level parameters added for every sector, alongside the impact-region variants. Energy also ships an unconstrained country diagnostic. |
 | 1.1.0 | 2026-04-23 | [10.5281/zenodo.19712742](https://zenodo.org/records/19712742) | All sectors at impact-region resolution: agriculture (8 crops), mortality (all-cause all-age), labor (3 subgroups), energy (3 subsectors). |
 | 1.0.0-alpha | 2026-03-22 | [10.5281/zenodo.19199919](https://zenodo.org/records/19199919) | First release: agriculture (8 crops) at impact-region resolution. |
@@ -96,17 +97,18 @@ exact parameters you used.
 
 **Shell:**
 ```bash
-# Replace with your desired version record ID
-VERSION_ID=19199919
-curl -sL -O "https://zenodo.org/api/records/${VERSION_ID}/files/flexdamage-parameters-v1.0.0-alpha.zip/content"
+# Replace with your desired version record ID and its zip file name
+VERSION_ID=23048639
+FILENAME=flexdamage-parameters-v1.3.1.zip
+curl -sL -O "https://zenodo.org/api/records/${VERSION_ID}/files/${FILENAME}/content"
 ```
 
 **Python:**
 ```python
 import requests
 
-VERSION_ID = 19199919  # specific version DOI
-FILENAME = "flexdamage-parameters-v1.0.0-alpha.zip"
+VERSION_ID = 23048639  # specific version DOI
+FILENAME = "flexdamage-parameters-v1.3.1.zip"
 
 r = requests.get(f"https://zenodo.org/records/{VERSION_ID}/files/{FILENAME}")
 with open(FILENAME, "wb") as f:
@@ -155,4 +157,4 @@ data. The concept DOI automatically resolves to the latest version.
 
 ### Citation
 
-Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.3.0) [Data set]. Zenodo. https://zenodo.org/records/19916065
+Rising, J. and Cadavid Sanchez, S. (2026). Flexible Damage Function Parameters for Climate Impact Assessment (Version 1.3.1) [Data set]. Zenodo. https://zenodo.org/records/23048639
