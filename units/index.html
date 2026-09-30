@@ -515,7 +515,7 @@ bundles and the upstream sources they come from.</p>
 </tr>
 <tr>
 <td><span class="arithmatex">\(T\)</span></td>
-<td>Local temperature anomaly</td>
+<td>Global mean temperature anomaly (identical across regions)</td>
 <td>°C above 1986 to 2005 climatology</td>
 </tr>
 <tr>
@@ -606,9 +606,17 @@ bundles and the upstream sources they come from.</p>
 </ul>
 <h2 id="temperature-units">Temperature units<a class="headerlink" href="#temperature-units" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Variable: local-area-weighted temperature anomaly.</li>
+<li>Variable: global mean surface temperature (GMST) anomaly. Each CMIP5 GCM's
+  annual global-mean tas (including SMME surrogate patterns) is expressed as
+  an anomaly against that GCM's own climatology, then averaged across GCMs
+  within each (rcp, year). Source: the CIL <code>GMST_damage-function</code> (GMTanom)
+  product.</li>
 <li>Units: °C.</li>
-<li>Baseline: 1986 to 2005, computed per impact region from the GMFD reanalysis.</li>
+<li>Baseline: 1986 to 2005 climatology; the ensemble-mean anomaly is zero over
+  the baseline period by construction.</li>
+<li>Scope: global, not regional. Every impact region shares the same <span class="arithmatex">\(T\)</span> within
+  a given (rcp, year); regional variation in damages enters only through the
+  region-specific coefficients <span class="arithmatex">\(\alpha_i\)</span>, <span class="arithmatex">\(\beta_i\)</span> and income <span class="arithmatex">\(Y_{it}\)</span>.</li>
 </ul>
 <h2 id="income-units">Income units<a class="headerlink" href="#income-units" title="Permanent link">&para;</a></h2>
 <ul>

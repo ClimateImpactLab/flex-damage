@@ -618,16 +618,16 @@ effect and fit per region:</p>
 then solved as a batch of 3x3 linear systems in numpy. Constraints
 are config-driven: <span class="arithmatex">\(\beta \leq 0\)</span> for agriculture (concavity),
 <span class="arithmatex">\(\beta \geq 0\)</span> for mortality (convexity).</p>
-<p>The intercept <span class="arithmatex">\(\delta_i\)</span> is dropped from the output: at
-pre-industrial temperatures (<span class="arithmatex">\(T = 0\)</span>), damage is zero.</p>
+<p>The intercept <span class="arithmatex">\(\delta_i\)</span> is dropped from the output: at the
+1986 to 2005 baseline climatology (<span class="arithmatex">\(T = 0\)</span>), damage is zero.</p>
 <p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#fit_regional_polynomials"><code>fit_regional_polynomials()</code></a></p>
 <h3 id="5-error-terms">5. Error terms<a class="headerlink" href="#5-error-terms" title="Permanent link">&para;</a></h3>
 <p>Three additional uncertainty components:</p>
 <p><strong><span class="arithmatex">\(\rho_i\)</span></strong>: Pearson correlation between regional and global polynomial
 residuals. Maintains spatial covariance in Monte Carlo draws.</p>
 <p><strong><span class="arithmatex">\(\zeta_{ik}\)</span></strong>: Temperature-dependent error scale, fit without
-intercept: <span class="arithmatex">\(E_{it} = \zeta_{ik} T_t + \phi_{it}\)</span>. Zero at
-pre-industrial by construction.</p>
+intercept: <span class="arithmatex">\(E_{it} = \zeta_{ik} T_t + \phi_{it}\)</span>. Zero at the
+1986 to 2005 baseline by construction.</p>
 <p><strong><span class="arithmatex">\(\eta_{ik}\)</span></strong>: Standard deviation of <span class="arithmatex">\(\phi_{it}\)</span>.</p>
 <p><strong>Code</strong>: <a href="https://climateimpactlab.github.io/flex-damage/api/#compute_all_error_terms"><code>compute_all_error_terms()</code></a></p>
 <h3 id="6-output">6. Output<a class="headerlink" href="#6-output" title="Permanent link">&para;</a></h3>
